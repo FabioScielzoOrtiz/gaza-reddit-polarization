@@ -1,0 +1,45 @@
+2025-11-19 17:01:54,671 - INFO - Logging configured. Output file: c:\Users\fscielzo\Documents\PhD\paper-4\scripts\..\logs\data_extraction_20251119170154.log
+2025-11-19 17:01:54,671 - INFO - PRAW instance initialized successfully (read-only mode).
+2025-11-19 17:01:54,671 - INFO - Starting data extraction...
+2025-11-19 17:01:54,671 - INFO - Total extraction combinations to run: 1
+2025-11-19 17:01:54,671 - INFO - Processing r/Liberal | Query: '((gaza OR palestine*) AND (ham...' | Sort: relevance
+2025-11-19 17:01:55,842 - INFO - ⚙️ Extracting data from post 1knnuln
+2025-11-19 17:01:56,009 - INFO - ✅ Post 1knnuln
+2025-11-19 17:01:56,263 - INFO - ⚙️ Extracting data from comments of post 1knnuln
+2025-11-19 17:01:56,263 - INFO - ✅ Comment msjs47u
+2025-11-19 17:01:56,410 - INFO - ✅ Comment msjrnde
+2025-11-19 17:01:56,592 - INFO - ✅ Comment msmtwuf
+2025-11-19 17:01:56,915 - INFO - ✅ Comment mssim3s
+2025-11-19 17:01:57,091 - INFO - ✅ Comment msvbuvv
+2025-11-19 17:01:57,265 - INFO - ✅ Comment msjyrcc
+2025-11-19 17:01:57,411 - INFO - ✅ Comment mskc0u5
+2025-11-19 17:01:57,411 - INFO - ⚙️ Extracting data from post 1kglnle
+2025-11-19 17:01:57,581 - INFO - ✅ Post 1kglnle
+2025-11-19 17:01:57,858 - INFO - ⚙️ Extracting data from comments of post 1kglnle
+2025-11-19 17:01:58,032 - INFO - ✅ Comment mr0998c
+2025-11-19 17:01:58,192 - INFO - ✅ Comment mr44z8k
+2025-11-19 17:01:58,347 - INFO - ✅ Comment mr1jnzq
+2025-11-19 17:01:58,492 - INFO - ✅ Comment mr226q1
+2025-11-19 17:01:58,662 - INFO - ✅ Comment mr6aato
+2025-11-19 17:01:58,662 - INFO - ✅ Comment ms2ygoo
+2025-11-19 17:01:58,815 - INFO - ✅ Comment mqzud7t
+2025-11-19 17:01:58,967 - INFO - ✅ Comment mr47bvk
+2025-11-19 17:01:59,128 - INFO - ✅ Comment mr5519b
+2025-11-19 17:01:59,298 - INFO - ✅ Comment mr7j0bz
+2025-11-19 17:01:59,457 - INFO - ✅ Comment mr7nvh6
+2025-11-19 17:01:59,457 - INFO - ⚙️ Extracting data from post 1irhr6d
+2025-11-19 17:01:59,609 - INFO - ✅ Post 1irhr6d
+2025-11-19 17:01:59,870 - INFO - ⚙️ Extracting data from comments of post 1irhr6d
+2025-11-19 17:02:00,044 - INFO - ✅ Comment md9rzrg
+2025-11-19 17:02:00,204 - INFO - ✅ Comment mdd3ueb
+2025-11-19 17:02:00,391 - INFO - ✅ Comment mddzsb4
+2025-11-19 17:02:00,391 - INFO - ✅ Comment mdfayao
+2025-11-19 17:02:00,542 - INFO - ✅ Comment mdjtnw4
+2025-11-19 17:02:00,692 - INFO - ✅ Comment mdjwms9
+2025-11-19 17:02:00,692 - INFO - -> Unique POSTS: 3 | Unique COMMENTS: 24
+2025-11-19 17:02:01,905 - INFO - Data extraction completed. Total unique posts: 3. Total unique comments: 24.
+2025-11-19 17:02:01,905 - INFO - ✅ Data Extraction completed in 0.12050000000000001 minutes. 
+2025-11-19 17:02:01,905 - INFO - Saving extracted data
+2025-11-19 17:02:01,962 - INFO - ✅📁 RAW POSTS data saved successfully to c:\Users\fscielzo\Documents\PhD\paper-4\scripts\..\data\raw_data\reddit_gaza_posts_data_raw_20251119170154.parquet (Records: 3)
+2025-11-19 17:02:01,979 - INFO - ✅📁 RAW COMMENTS data saved successfully to c:\Users\fscielzo\Documents\PhD\paper-4\scripts\..\data\raw_data\reddit_gaza_comments_data_raw_20251119170154.parquet (Records: 24)
+2025-11-19 17:02:01,979 - INFO - ✅📥 DATA EXTRACTION COMPLETED
