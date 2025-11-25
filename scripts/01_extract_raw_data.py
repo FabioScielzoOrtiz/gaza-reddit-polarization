@@ -12,7 +12,7 @@ project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 # ------------------------------------------------------------------------------------------
 
-from config.data_extraction_config import (
+from config.config_01 import (
     LIST_SUBREDDITS, LIST_QUERIES, LIST_SORTS, 
     MAX_LIMIT, TIME_FILTER
 )

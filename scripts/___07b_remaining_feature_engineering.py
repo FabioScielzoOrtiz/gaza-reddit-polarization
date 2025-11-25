@@ -10,14 +10,18 @@ load_dotenv()
 # --- PATH CONFIGURATION ---
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
-processed_data_path = os.path.join(project_path, 'data', 'processed_data', '02_processed_data.parquet')
+processed_data_path = os.path.join(project_path, 'data', 'processed_data', '05_processed_data.parquet')
 features_dir = os.path.join(project_path, 'data', 'features')
 os.makedirs(features_dir, exist_ok=True)
 sys.path.append(project_path)
 
 # Add necessary imports for LLM utilities and client initialization here
 from src.feature_engineering_utils import (
-    content_relevance_score, 
+    political_stance_score,
+    #sentiment_score_func, 
+    #discourse_tone_score,
+    #dominant_frame_score,
+    #argument_quality_score_func
 )
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -41,7 +45,11 @@ except Exception as e:
 
 # Map feature names to their corresponding generation function.
 feature_function_map = {
-    'content_relevance_score': content_relevance_score
+    'political_stance': political_stance_score,
+    #'sentiment_score': sentiment_score_func, 
+    #'discourse_tone': discourse_tone_score,
+    #'dominant_frame': dominant_frame_score,
+    #'argument_quality_score': argument_quality_score_func
 }
 
 # --- FEATURE LIST AND EXECUTION ---
@@ -50,7 +58,6 @@ feature_function_map = {
 N_SAMPLE = 20 if 20 <= len(df_base) else len(df_base)
 SAMPLE_SEED = 111
 df_base = df_base.sample(n=N_SAMPLE, seed=SAMPLE_SEED)
-
 
 features_to_generate = list(feature_function_map.keys())
 text_content_list = df_base['text_content'].to_list()

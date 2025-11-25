@@ -21,8 +21,8 @@ start_time = time.time()
 logging.info("Loading raw Parquet data files...")
 raw_data = {}
 for raw_data_name in os.listdir(raw_data_dir):
-    raw_data_path = os.path.join(raw_data_dir, raw_data_name)
-    raw_data[raw_data_name.split('.')[0]] = pl.read_parquet(raw_data_path)
+   raw_data_path = os.path.join(raw_data_dir, raw_data_name)
+   raw_data[raw_data_name.split('.')[0]] = pl.read_parquet(raw_data_path)
 
 # Separate and vertically concatenate raw posts and comments
 post_raw_data_list = [raw_data[k] for k in raw_data.keys() if 'posts' in k]

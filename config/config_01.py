@@ -65,3 +65,4 @@ LIST_QUERIES = [
     # Q5: General Topic Catch-all
     #'(gaza OR palestine*)'
 ]
+

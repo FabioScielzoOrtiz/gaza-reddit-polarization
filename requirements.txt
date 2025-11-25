@@ -3,3 +3,4 @@ polars
 numpy
 dotenv
 openai
+scikit-learn

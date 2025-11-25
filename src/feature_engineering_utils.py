@@ -1,166 +1,121 @@
-##########################################################################################################################################################
-
 import json
-import os
 import logging
+from openai import OpenAI
 
-##########################################################################################################################################################
-
-# Configure logging at the module level
+# Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-##########################################################################################################################################################
+# ==============================================================================
+# 1. CONTENT RELEVANCE SCORE (Filtrado)
+# ==============================================================================
 
-def process_expert_samples(project_path: str) -> dict:
+def content_relevance_score(client: OpenAI, content: str, few_shot_examples: list = None):
     """
-    Loads all expert sample files from the 'data/expert_samples' directory.
-    Handles File Not Found and JSON decoding errors safely.
+    Calcula la relevancia temática usando ejemplos Few-Shot dinámicos.
     """
-    expert_samples_dir = os.path.join(project_path, 'data', 'expert_sample')
-    
-    if not os.path.exists(expert_samples_dir):
-        logging.warning(f"❌ Expert samples directory not found: {expert_samples_dir}. Returning empty samples.")
-        return {}
-    
-    expert_samples = {}
-    
-    # 1. Iterate through all files in the samples directory
-    for filename in os.listdir(expert_samples_dir):
-        if filename.endswith('.json'):
-            sample_name = filename.split('.')[0]
-            file_path = os.path.join(expert_samples_dir, filename)
-            
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    expert_samples[sample_name] = json.load(f)
-                logging.info(f"✅ Loaded expert samples for: {sample_name}")
-                
-            except FileNotFoundError:
-                logging.error(f"❌ File not found: {file_path}. Skipping.")
-                expert_samples[sample_name] = []
-            except json.JSONDecodeError as e:
-                # Critical fix: Handle malformed JSON specifically
-                logging.error(f"❌ JSON Decode Error in {filename}: {e}. Skipping.")
-                expert_samples[sample_name] = []
-            except Exception as e:
-                # Catch any other unexpected I/O errors
-                logging.error(f"❌ Unexpected error loading {filename}: {e}. Skipping.")
-                expert_samples[sample_name] = []
-                
-    return expert_samples
 
-
-##########################################################################################################################################################
-
-# Load expert samples
-script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
-expert_samples = process_expert_samples(project_path)
-
-##########################################################################################################################################################
-
-def content_relevance_score(client, content):
-        
     prompt = f"""
 You are a content rating specialist for an academic study on public opinion regarding the Gaza conflict on Reddit.
 
-Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided text (Post Title + Post Body + Comment Body).
+Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided text.
 
 ---
-**STRICT GUIDELINE:** 1. **FOCUS:** The score MUST primarily reflect the relevance of the **Comment Body** as an opinion regarding the Gaza conflict. Use the Post Title/Body ONLY as context to understand the comment and the topic.
-2. **SCORE CRITERIA:** **DO NOT** penalize the text based on its tone (aggressive, polemical), quality (low effort, vague), or brevity. The only criterion is whether the text explicitly discusses the Israel-Palestine/Gaza conflict or its direct context.
+**STRICT GUIDELINE:**
+1. **FOCUS:** The score MUST primarily reflect the relevance of the **Comment Body**. Use the Post Title/Body ONLY as context.
+2. **CRITERIA:** Do NOT penalize based on tone, quality, or brevity. Only evaluate topical connection to the Israel-Palestine conflict.
 
 ---
 **TOPICAL RELEVANCE SCALE (0-5):**
+* **5 - Directly Related:** Explicit mention of the conflict, main actors (Israel, Hamas, IDF, Gaza), or core events.
+* **4 - Clearly Related:** Brief mentions, strong reactions, or aggressive statements unambiguously about the conflict.
+* **3 - Marginal Context:** Related keywords (Middle East, UN, War) without explicit ties to Gaza/Israel. Broad context.
+* **2 - Accidental/Trivial:** Keywords used in non-political context (e.g., travel advice) or pure noise in a related thread.
+* **1 - Off-Topic Noise:** Personal attacks or emotional outbursts unrelated to the topic.
+* **0 - Discard/Spam:** Completely unrelated content.
 
-* **5 - Directly Related (Core Focus):** The comment's main subject is the Israel-Palestine/Gaza conflict. It explicitly mentions the conflict, parties (Israel, Palestine, Hamas, IDF), or core related events/politics. High score regardless of the text's tone or quality.
-* **4 - Clearly Related (Strong Context):** The comment mentions the conflict, but the discussion is brief, a simple reaction, or a very aggressive/polemical statement. It is unambiguously about the conflict.
-* **3 - Marginal Context:** The comment uses related keywords (e.g., "Middle East," "foreign policy," "UN") but does not explicitly mention "Gaza," "Israel," or "Palestine." The connection to the conflict is implied, not stated.
-* **2 - Accidental/Trivial Mention:** The comment uses a keyword (e.g., "Gaza") but is clearly talking about something else (e.g., "a recipe from Gaza") or is pure noise (e.g., a simple "Thank you" in a related thread).
-* **1 - Off-Topic Noise/Abuse:** The comment is primarily an attack on another user (*ad hominem*) or a simple emotional outburst *without* mentioning the conflict. Pure noise that is not topical.
-* **0 - Discard/Spam:** The comment is solely spam, broken text, or completely unrelated content.
+---
+**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
+Use the following expert-labeled examples as your calibration standard. You must align your scoring logic with these cases:
+
+{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
-You must output a single JSON object. Do not include any reasoning, salutations, or additional text.
-
-**EXAMPLE OUTPUT:**
-{{"content_relevance_score": 4}}
+Return a single JSON object. Example: {{"content_relevance_score": 4}}
 
 **TEXT TO CLASSIFY:**
 {content}
 """
 
-    response = client.chat.completions.create(
-            model="gpt-4o-mini",
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", # O el modelo que estés usando
             messages=[
-                {"role": "system", "content": "You are a political analyst and content classifier. Your output must be a single JSON object based ONLY on the provided criteria."},
+                {"role": "system", "content": "You are a helpful classification assistant. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.1
+            temperature=0.0 # Temperatura 0 para máxima consistencia y reproducibilidad
         )
-    return response.choices[0].message.content
+        return response.choices[0].message.content
+    except Exception as e:
+        logging.error(f"Error in OpenAI API call (Relevance): {e}")
+        return json.dumps({"content_relevance_score": None})
 
 
-##########################################################################################################################################################
+# ==============================================================================
+# 2. POLITICAL STANCE SCORE (Análisis Complejo)
+# ==============================================================================
 
-def political_stance_score(client, content):
-    
-    sample_key = 'political_stance_samples'
-    expert_samples_formatted = ""
-    expert_samples_list = expert_samples.get(sample_key)
-    if expert_samples_list:
-        # Format the loaded expert samples to inject in the prompt
-        expert_samples_formatted = json.dumps(expert_samples_list, indent=2)
-    else:
-        logging.warning("Expert samples for political_stance is empty. That expert knowledge will not be able to be used by the LLM to generate the data.")
-            
-        
+def political_stance_score(client: OpenAI, content: str, few_shot_examples: list = None):
+    """
+    Calcula la postura política usando ejemplos Few-Shot dinámicos.
+    """
+
     prompt = f"""
-You are an expert political analyst for an academic study on public opinion regarding the Gaza conflict.
+You are an expert political analyst for a study on the Gaza conflict.
 
-Your task is to assign a single **Political Stance Score** from **1 (Strongly Pro-Palestine)** to **5 (Strongly Pro-Israel)** to the provided text.
+Your task is to assign a **Political Stance Score** from **1 (Pro-Palestine)** to **5 (Pro-Israel)**.
 
 ---
-**STRICT GUIDELINE:** 1. **FOCUS:** The score MUST reflect the political alignment expressed in the **Comment Body**. Use the Post Title/Body ONLY as neutral context.
-2. **TONE:** Base the score on the **underlying political position**, not the tone (aggressive/polemical comments can still be scored 1 or 5).
-3. **NEUTRALITY:** Only assign a score of **3** if the comment explicitly criticizes or supports BOTH sides equally, or if the discussion is purely academic/historical without taking a side.
+**STRICT GUIDELINES:**
+1. **FOCUS:** Analyze the **Comment Body**. Use Post context only for interpretation.
+2. **TONE vs STANCE:** Distinguish between aggressive tone and political direction. An aggressive comment can be Pro-Israel (5) or Pro-Palestine (1).
+3. **NEUTRALITY:** Score 3 is ONLY for truly balanced analysis or unrelated neutral facts.
 
 ---
 **POLITICAL STANCE SCALE (1-5):**
-* 5 - Strongly Pro-Israel: Explicit, strong support for Israeli actions...
-* 4 - Mildly Pro-Israel: Support for Israel's right to self-defense...
-* 3 - Neutral/Balanced: Objective discussion, historical analysis...
-* 2 - Mildly Pro-Palestine: Focus on the humanitarian crisis...
-* 1 - Strongly Pro-Palestine: Explicit, strong condemnation of Israeli actions...
+* **5 - Strongly Pro-Israel:** Explicit support for Israel/IDF, justification of actions, condemnation of Hamas as sole aggressor.
+* **4 - Leaning Pro-Israel:** Empathy for Israeli civilians, focus on security rights, mild criticism of Palestine.
+* **3 - Neutral/Balanced:** Academic analysis, criticizing both sides equally, or factual reporting without opinion.
+* **2 - Leaning Pro-Palestine:** Focus on humanitarian crisis in Gaza, criticism of Israeli policies, empathy for Palestinian civilians.
+* **1 - Strongly Pro-Palestine:** Accusations of genocide/apartheid against Israel, strong support for Palestinian resistance.
 
 ---
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES**
-The following samples are derived from expert human ratings. **You MUST use these examples as the definitive standard** to determine the expected score for each category (1-5):
-{expert_samples_formatted}
+**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
+Learn from these human-labeled examples to calibrate your judgment:
+
+{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
-You must output a single JSON object. Do not include any reasoning, salutations, or additional text.
-
-**EXAMPLE OUTPUT:**
-{{"political_stance": 2}}
+Return a single JSON object. Example: {{"political_stance": 2}}
 
 **TEXT TO CLASSIFY:**
 {content}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a political analyst and content classifier. Your output must be a single JSON object based ONLY on the provided criteria."},
-            {"role": "user", "content": prompt}
-        ],
-        response_format={ "type": "json_object" },
-        temperature=0.1
-    )
-    return response.choices[0].message.content
-
-##########################################################################################################################################################
-
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a political analyst. Output JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" },
+            temperature=0.0
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        logging.error(f"Error in OpenAI API call (Stance): {e}")
+        return json.dumps({"political_stance": None})
