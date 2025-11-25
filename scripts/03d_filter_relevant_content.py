@@ -1,3 +1,6 @@
+
+# TODO: pedirle a gemini que lo comente (en ingles, siguiendo el estilo de los otros scripts) y lo mejore (si fuera necesario)
+
 import os, sys
 import polars as pl
 

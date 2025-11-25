@@ -70,6 +70,7 @@ def process_train_data_for_llm(filepath):
 # --- MAIN EXECUTION ---
 
 def main():
+
     mode_msg = f"🧪 PILOT MODE (Max {PILOT_SIZE} records)" if PILOT_MODE else "🚀 PRODUCTION MODE (Full Data)"
     logging.info(f"STARTING GENERATION: Content Relevance Feature")
     logging.info(f"MODE: {mode_msg}")
@@ -105,7 +106,7 @@ def main():
             logging.warning(f"⚠️ Output file exists but couldn't be read: {e}")
 
     # B. Filter out processed records
-    df_to_process = df_base.filter(~pl.col('comment_id').is_in(processed_ids))
+    df_to_process = df_base.filter(~ pl.col('comment_id').is_in(processed_ids))
     
     # C. Apply PILOT LIMIT (The only change in logic)
     if PILOT_MODE:
@@ -113,54 +114,54 @@ def main():
             logging.info(f"✂️ Cutting dataset to {PILOT_SIZE} records for Pilot test.")
             df_to_process = df_to_process.sample(n=PILOT_SIZE, seed=PILOT_SEED)
     
-    total_to_process = len(df_to_process)
-    if total_to_process == 0:
+    n_to_process = len(df_to_process)
+    if n_to_process == 0:
         logging.info("✅ No new records to process. Exiting.")
         return
 
-    logging.info(f"⏳ Queue size: {total_to_process} records.")
+    logging.info(f"⏳ Queue size: {n_to_process} records.")
 
     # 5. PROCESSING LOOP
     results_buffer = [] 
-    count = 0
+    n_processed_records = 0
     
     for row in df_to_process.iter_rows(named=True):
-        c_id = row['comment_id']
+        comment_id = row['comment_id']
         text_input = row['text_content']
         
-        score = -1 # Default error value
+        score_value = -1 # Default error value
         
         try:
             # API Call
-            llm_response = content_relevance_score(
+            llm_output = content_relevance_score(
                 client=client,
                 content=text_input,
                 few_shot_examples=few_shot_examples
             )
             
             # Parse JSON
-            data = json.loads(llm_response)
-            score = data.get('content_relevance_score', -1)
+            llm_output = json.loads(llm_output)
+            score_value = llm_output.get('content_relevance_score', -1)
             
             # Safety cast
-            if score is None: score = -1
-            else: score = int(score)
+            if score_value is None: score_value = -1
+            else: score_value = int(score_value)
 
         except Exception as e:
-            logging.warning(f"⚠️ Error processing ID {c_id}: {e}")
-            score = -1
+            logging.warning(f"⚠️ Error processing ID {comment_id}: {e}")
+            score_value = -1
         
         # Add result to buffer
         results_buffer.append({
-            "comment_id": c_id,
-            "content_relevance_score": score
+            "comment_id": comment_id,
+            "content_relevance_score": score_value
         })
         
-        count += 1
+        n_processed_records += 1
 
         # 6. Incremental Saving (Batching)
-        if count % BATCH_SAVE_SIZE == 0 or count == total_to_process:
-            logging.info(f"💾 Saving batch... ({count}/{total_to_process})")
+        if n_processed_records % BATCH_SAVE_SIZE == 0 or n_processed_records == n_to_process:
+            logging.info(f"💾 Saving batch... ({n_processed_records}/{n_to_process})")
             
             df_new_chunk = pl.DataFrame(results_buffer)
             
