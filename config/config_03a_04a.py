@@ -13,3 +13,11 @@ MANUAL_VAL_IDS = [
     # 'comment_id_Y1',
     # 'comment_id_Y2',
 ]
+
+DATA_COLUMNS_TO_INCLUDE = [
+    'comment_id', 
+    'post_title', 
+    'post_body', 
+    'comment_body', 
+    'text_content'
+]

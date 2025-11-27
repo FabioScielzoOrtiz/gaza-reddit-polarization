@@ -12,7 +12,7 @@ features_dir = os.path.join(project_path, 'data', 'features')
 processed_data_dir = os.path.join(project_path, 'data', 'processed_data')
 feature_file_path = os.path.join(features_dir, 'content_relevance_score.parquet')
 base_data_path = os.path.join(processed_data_dir, '02_processed_data.parquet')
-processed_data_path = os.path.join(processed_data_dir, '04_processed_data.parquet')
+processed_data_path = os.path.join(processed_data_dir, '03d_processed_data.parquet')
 
 sys.path.append(project_path)
 
