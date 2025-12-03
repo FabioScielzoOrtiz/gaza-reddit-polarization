@@ -30,6 +30,9 @@ comments_raw_data_list = [raw_data[k] for k in raw_data.keys() if 'comments' in 
 post_raw_data = pl.concat(post_raw_data_list, how='vertical')
 comments_raw_data = pl.concat(comments_raw_data_list, how='vertical')
 
+# TODO: delete duplicate rows from post_raw_data and comments_raw_data. 
+# Assuming that multiple data extraction will be performed winth 01 script (at different moments), 
+#those different extractions are very likely to share data (rows), therefore duplicated rows must be removed.
 
 # --- DATA PROCESSING AND CLEANING ---
 
