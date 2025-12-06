@@ -8,13 +8,11 @@ project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
 from config.config_03a_04a import (
-    SAMPLE_N, # Total target number of samples (Manual + Random) 
-    SAMPLE_SEED, # Seed for reproducibility
-    VAL_SAMPLE_RATIO, # 80% for Blind Validation, 20% for Few-Shot Training
-    # Add specific comment_ids here to FORCE them into the specific set. Useful for including known edge cases (sarcasm, short text) in the prompt.
+    SAMPLE_N,  
+    SAMPLE_SEED, 
+    VAL_SAMPLE_RATIO, 
     MANUAL_TRAIN_IDS, 
     MANUAL_VAL_IDS,
-    # TODO: add descriptive comment
     DATA_COLUMNS_TO_INCLUDE
 )
 from config.config_03abc import (
@@ -50,10 +48,18 @@ def main():
         logging.error(f"❌ Error loading data: {e}")
         exit()
 
-    run_labeling_samples(df, DATA_COLUMNS_TO_INCLUDE, FEATURES_TO_LABEL, 
-                         SAMPLE_N, SAMPLE_SEED, VAL_SAMPLE_RATIO, 
-                         MANUAL_TRAIN_IDS, MANUAL_VAL_IDS,
-                         train_sample_path, val_sample_path)
+    run_labeling_samples(
+        df, 
+        DATA_COLUMNS_TO_INCLUDE, 
+        FEATURES_TO_LABEL, 
+        SAMPLE_N, 
+        SAMPLE_SEED, 
+        VAL_SAMPLE_RATIO, 
+        MANUAL_TRAIN_IDS, 
+        MANUAL_VAL_IDS,
+        train_sample_path, 
+        val_sample_path
+    )
     
 if __name__ == "__main__":
     main()

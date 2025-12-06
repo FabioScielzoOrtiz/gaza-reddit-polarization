@@ -1,4 +1,5 @@
 import os, sys
+import json
 import polars as pl
 import logging
 from openai import OpenAI
@@ -10,10 +11,7 @@ project_path = os.path.join(script_path, '..')
 sys.path.append(project_path)
 
 # --- CONFIGURATION ---
-from config.config_03c_04c import (
-    # Set to True to process only a small sample (e.g., 10 records).
-    # Set to False to process the entire dataset.
-    # Since we use the same output file, you can run Pilot -> Check -> Production (Resume) seamlessly.
+from config.config_03c_04c import (    
     PILOT_MODE, 
     PILOT_SIZE, 
     PILOT_SEED,
@@ -23,18 +21,21 @@ from config.config_03c_04c import (
 from config.config_04abc import (
     FEATURES_TO_GENERATE
 )
-from config.config_03bc_04bc import (
+from config.config_03bcd_04bc import (
     FEATURE_CONFIG
 )
 
 
-# 1. Input Data (Full processed dataset)
+# Input Data path (Full processed dataset)
 processed_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
 
-# 2. Training Data (Expert samples for Few-Shot Learning)
+# Training Data path (Expert samples for Few-Shot Learning)
 train_sample_path = os.path.join(project_path, 'data', 'labeled_samples', '04a_train_sample_relevance.json')
 
-# 3. Output File
+# Validation results path
+validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
+
+# Output File path
 features_dir = os.path.join(project_path, 'data', 'features')
 os.makedirs(features_dir, exist_ok=True)
 
@@ -67,12 +68,34 @@ def main():
      
     for feature_name in FEATURES_TO_GENERATE:
 
-        feature_file_path = os.path.join(features_dir, f'{feature_name}.parquet')
+        validation_results_path = os.path.join(validation_results_dir, f"validation_results_{feature_name}.json")
+        with open(validation_results_path, "r", encoding="utf-8") as f:
+            validation_results = json.load(f)
 
-        feature_config = FEATURE_CONFIG.get(feature_name)
+        if validation_results['validation_passed']:
 
-        run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
-                                   BATCH_SAVE_SIZE, PILOT_MODE, PILOT_SIZE, PILOT_SEED, client, logging)
+            feature_file_path = os.path.join(features_dir, f'{feature_name}.parquet')
+
+            feature_config = FEATURE_CONFIG.get(feature_name)
+
+            run_generation_for_feature(
+                feature_name, 
+                feature_file_path, 
+                feature_config, 
+                df, 
+                df_train, 
+                BATCH_SAVE_SIZE, 
+                PILOT_MODE, 
+                PILOT_SIZE, 
+                PILOT_SEED, 
+                client 
+            )
+
+        else:
+
+            logging.warning(f'🛑 Validation not passed for {feature_name}.\nPossible Solutions: a) Improve LLM Prompt b) Increase Few-Shot Samples')
+            logging.warning(f'⏭️ Generation skipped for {feature_name}')
+
 
 if __name__ == "__main__":
     main()

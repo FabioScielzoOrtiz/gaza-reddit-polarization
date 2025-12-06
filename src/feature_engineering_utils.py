@@ -1,13 +1,14 @@
 import os
 import json
-import logger
+import logging
 import datetime
 import polars as pl
+import numpy as np
 from openai import OpenAI
 from sklearn.metrics import accuracy_score, mean_absolute_error
 
-# Configurar logger
-logger.basicConfig(level=logger.INFO, format='%(levelname)s: %(message)s')
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # ==============================================================================
 # 1. CONTENT RELEVANCE SCORE (Filtrado)
@@ -63,7 +64,7 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error in OpenAI API call (Relevance): {e}")
+        logging.error(f"Error in OpenAI API call (Relevance): {e}")
         return json.dumps({"content_relevance_score": None})
 
 
@@ -121,7 +122,7 @@ Return a single JSON object. Example: {{"political_stance": 2}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error in OpenAI API call (Stance): {e}")
+        logging.error(f"Error in OpenAI API call (Stance): {e}")
         return json.dumps({"political_stance": None})
     
 # ==============================================================================
@@ -172,7 +173,7 @@ Example: {{"discourse_tone": "Sarcastic"}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error in Tone: {e}")
+        logging.error(f"Error in Tone: {e}")
         return json.dumps({"discourse_tone": None})
 
 
@@ -224,7 +225,7 @@ Example: {{"dominant_frame": "Security/Military"}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error in Frame: {e}")
+        logging.error(f"Error in Frame: {e}")
         return json.dumps({"dominant_frame": None})
 
 
@@ -276,7 +277,7 @@ Example: {{"argument_quality_score": 3}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error in Quality: {e}")
+        logging.error(f"Error in Quality: {e}")
         return json.dumps({"argument_quality_score": None})
 
 # ==============================================================================
@@ -331,7 +332,7 @@ Example: {{"sentiment_score": -0.45}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Error in Quality: {e}")
+        logging.error(f"Error in Quality: {e}")
         return json.dumps({"argument_quality_score": None})
     
 # ==============================================================================
@@ -346,7 +347,7 @@ def export_labeling_samples_to_json(df, file_path, data_columns_to_show, feature
         export_list.append(item)        
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(export_list, f, indent=4, ensure_ascii=False)
-    logger.info(f"💾 File saved: {file_path}")
+    logging.info(f"💾 File saved: {file_path}")
 
 #==============================================================================
 
@@ -354,7 +355,7 @@ def load_labeled_sample(file_path):
     """Loads labeled JSON asDataFrame and filters nulls in feature_name column."""
 
     if not os.path.exists(file_path):
-        logger.error(f"❌ File not found: {file_path}. Run script 03a/04a first.")
+        logging.error(f"❌ File not found: {file_path}. Run script 03a/04a first.")
         exit()
 
     try:
@@ -370,7 +371,7 @@ def load_labeled_sample(file_path):
         return df
     
     except Exception as e:
-        logger.error(f"❌ Error loading {file_path}: {e}")
+        logging.error(f"❌ Error loading {file_path}: {e}")
         exit()
 
 #==============================================================================
@@ -405,7 +406,7 @@ def run_labeling_samples(df, data_columns_to_include, features_to_label,
                          sample_n, sample_seed, val_sample_ratio, manual_train_ids, manual_val_ids,
                          train_sample_path, val_sample_path): 
 
-    logger.info("⚙️ Starting generation of samples (Manual + Random)...")
+    logging.info("⚙️ Starting generation of samples (Manual + Random)...")
 
     # 2. EXTRACT MANUAL SAMPLES
     # Identify manual rows
@@ -416,14 +417,14 @@ def run_labeling_samples(df, data_columns_to_include, features_to_label,
     if len(df_manual_train) < len(manual_train_ids):
         found = df_manual_train['comment_id'].to_list()
         missing = set(manual_train_ids) - set(found)
-        logger.warning(f"⚠️ Some MANUAL TRAIN IDs were not found in dataset: {missing}")
+        logging.warning(f"⚠️ Some MANUAL TRAIN IDs were not found in dataset: {missing}")
 
     if len(df_manual_val) < len(manual_val_ids):
         found = df_manual_val['comment_id'].to_list()
         missing = set(manual_val_ids) - set(found)
-        logger.warning(f"⚠️ Some MANUAL VAL IDs were not found in dataset: {missing}")
+        logging.warning(f"⚠️ Some MANUAL VAL IDs were not found in dataset: {missing}")
 
-    logger.info(f"🔧 Manual Samples Extracted -> Train: {len(df_manual_train)} | Val: {len(df_manual_val)}")
+    logging.info(f"🔧 Manual Samples Extracted -> Train: {len(df_manual_train)} | Val: {len(df_manual_val)}")
 
     # 3. PREPARE RANDOM POOL (Excluding Manual IDs to avoid duplicates/leakage)
     all_manual_ids = manual_train_ids + manual_val_ids
@@ -439,13 +440,13 @@ def run_labeling_samples(df, data_columns_to_include, features_to_label,
     random_train_n = max(0, train_n - manual_train_n)
     random_val_n = max(0, val_n - manual_val_n)
     random_total_n = random_train_n + random_val_n
-    logger.info(f"🎲 Random Samples Needed -> Train: {random_train_n} | Val: {random_val_n}")
+    logging.info(f"🎲 Random Samples Needed -> Train: {random_train_n} | Val: {random_val_n}")
 
     # 5. SAMPLE RANDOM DATA
     try:
         df_random_selected = df_pool.sample(n=random_total_n, seed=sample_seed, with_replacement=False)
     except Exception:
-        logger.warning("⚠️ Pool is smaller than requested samples. Taking everything available.")
+        logging.warning("⚠️ Pool is smaller than requested samples. Taking everything available.")
         df_random_selected = df_pool
 
     # Split the random selection into train and val chunks
@@ -456,33 +457,39 @@ def run_labeling_samples(df, data_columns_to_include, features_to_label,
     df_train_final = pl.concat([df_manual_train, df_random_train])
     df_val_final = pl.concat([df_manual_val, df_random_val])
 
-    logger.info(f"📊 FINAL SPLIT -> Train (Few-Shot): {len(df_train_final)} | Validation (Blind): {len(df_val_final)}")
+    logging.info(f"📊 FINAL SPLIT -> Train (Few-Shot): {len(df_train_final)} | Validation (Blind): {len(df_val_final)}")
 
     # 7. EXPORT TO JSON
     export_labeling_samples_to_json(df_train_final, train_sample_path, data_columns_to_include, features_to_label)
     export_labeling_samples_to_json(df_val_final, val_sample_path, data_columns_to_include, features_to_label)
 
-    logger.info("✅ Process completed. Check 'data/labeled_samples' folder.")
+    logging.info("✅ Process completed. Check 'data/labeled_samples' folder.")
 
 #==============================================================================
 
-def run_validation_for_feature(feature_name, feature_config, df_train, df_val, client, logger): 
+def normalize_str_categories(values):
+    # Convierte a string, quita espacios y pone en minúsculas. 
+    # Convierte None a "unknown" para evitar fallos.
+    return [str(l).strip().lower() if l is not None else "unknown" for l in values]
 
+def run_validation_for_feature(feature_name, feature_config, df_train, df_val, client, validation_results_dir): 
+
+      
     if not feature_config:
-        logger.log(f"❌ Configuration not found for {feature_name}")
+        logging.error(f"❌ Configuration not found for {feature_name}")
         return
     
-    logger.log(f"\n🔵 VALIDATING FEATURE: {feature_name.upper()} ({feature_config['type']})")
+    logging.info(f"\n🔵 VALIDATING FEATURE: {feature_name.upper()}")
     
     if len(df_train) == 0 or len(df_val) == 0:
-        logger.log("❌ Error: Missing labeled data. Check 'data/labeled_samples' folder.")
+        logging.error("❌ Error: Missing labeled data. Check 'data/labeled_samples' folder.")
         return
 
     # 1. Clean nulls from feature_name column in df_train and df_val 
     df_train = df_train.filter(pl.col(feature_name).is_not_null())
     df_val = df_val.filter(pl.col(feature_name).is_not_null())
 
-    logger.log(f"📂 Data Loaded -> Train (Few-Shot): {len(df_train)} | Val (Test): {len(df_val)}")
+    logging.info(f"📂 Data Loaded -> Train (Few-Shot): {len(df_train)} | Val (Test): {len(df_val)}")
 
     # 2. Prepare Few-Shot Examples
     few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
@@ -491,11 +498,18 @@ def run_validation_for_feature(feature_name, feature_config, df_train, df_val, c
     y_true = []
     y_pred = []
     
-    logger.log(f"⏳ Running predictions on {len(df_val)} records...")
+    feature_type = feature_config['type']
+    validation_threshold = feature_config['validation_threshold']
+
+    validation_results = {}
+    validation_results['feature_name'] = str(feature_name)
+    validation_results['feature_type'] = str(feature_type)
+
+    logging.info(f"⏳ Running predictions on {len(df_val)} records...")
 
     for i, row in enumerate(df_val.iter_rows(named=True)):
         text_input = row['text_content']
-        true_score = row[feature_name]
+        true_value = row[feature_name]
         
         try:
             # CALL TO LLM
@@ -509,70 +523,90 @@ def run_validation_for_feature(feature_name, feature_config, df_train, df_val, c
             predicted_value = response_json.get(feature_name)
             
             # Safety Casting based on feature_config
-            if feature_config['type'] == 'ordinal':
+            if feature_type == 'ordinal':
                 predicted_value = int(predicted_value) if predicted_value is not None else -1
-                true_score = int(true_score)
+                true_value = int(true_value)
             
-            elif feature_config['type'] == 'continuous':
+            elif feature_type == 'continuous':
                 # Float conversion for Sentiment
                 predicted_value = float(predicted_value) if predicted_value is not None else 0.0
-                true_score = float(true_score)
+                true_value = float(true_value)
 
             else:
                 # Categorical (String)
                 predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
-                true_score = str(true_score)
+                true_value = str(true_value)
 
         except Exception as e:
-            logger.warning(f"⚠️ Error in record {i}: {e}")
-            if feature_config['type'] == 'ordinal': predicted_value = -1
-            elif feature_config['type'] == 'continuous': predicted_value = 0.0
+            logging.warning(f"⚠️ Error in record {i}: {e}")
+            if feature_type == 'ordinal': predicted_value = -1
+            elif feature_type == 'continuous': predicted_value = 0.0
             else: predicted_value = "ERROR"
 
-        y_true.append(true_score)
+        y_true.append(true_value)
         y_pred.append(predicted_value)
         
         if (i+1) % 10 == 0: print(f"   Processed {i+1}/{len(df_val)}...")
 
     # 4. Metrics & Reporting
-    logger.log("-" * 60)
-    logger.log(f"📊 METRICS logger: {feature_name}")
+    logging.info(f"📊 METRICS logging: {feature_name}")
     
     # --- ORDINAL LOGIC ---
-    if feature_config['type'] == 'ordinal':
-        error_value = adjacent_accuracy(y_true, y_pred) # adjacent_tol = 1 by default
-        logger.log(f"   🎯 Adjacent Accuracy:  {error_value:.2%} (Target: {feature_config['validation_threshold']:.0%}) (Tolerance +/- 1)")
-        
-        if feature_name == 'content_relevance_score':
+    if feature_type == 'ordinal':
+
+        validation_results['validation_score_type'] = 'accuracy'
+
+        if feature_name != 'content_relevance_score':
+
+            score_value = adjacent_accuracy(y_true, y_pred) # adjacent_tol = 1 by default
+            logging.info(f"   🎯 Adjacent Accuracy:  {score_value:.2%} (Target: >= {validation_threshold:.0%}) (Tolerance +/- 1)")
+
+        else:
             cutoff = feature_config['cutoff']
             bin_true = [1 if x >= cutoff else 0 for x in y_true]
             bin_pred = [1 if x >= cutoff else 0 for x in y_pred]
-            bin_acc = accuracy_score(bin_true, bin_pred)
-            logger.log(f"   ⚖️ Binary Filter Acc:  {bin_acc:.2%} (Score >= {cutoff})")
+            score_value = accuracy_score(bin_true, bin_pred)
+            logging.info(f"   ⚖️ Binary Filter Acc:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
 
-    # --- CONTINUOUS LOGIC (SENTIMENT) ---
-    elif feature_config['type'] == 'continuous':
-        error_value = mean_absolute_error(y_true, y_pred)
-        logger.log(f"   📉 Mean Absolute Error (MAE): {error_value:.4f} (Target: < {feature_config['validation_threshold']})")
+        validation_passed = score_value >= validation_threshold
 
     # --- CATEGORICAL LOGIC ---
-    elif feature_config['type'] == 'categorical':
-        error_value = accuracy_score(y_true, y_pred)
-        logger.log(f"   🎯 Exact Accuracy:     {error_value:.2%} (Target: {feature_config['validation_threshold']:.0%})")
+    elif feature_type == 'categorical':
 
-    if error_value <= feature_config['validation_threshold']:
-        logger.log("   ✅ SUCCESS: Error is within acceptable limits.")
-    else:
-        logger.log("   🛑 FAILURE: High error rate.")
+        validation_results['validation_score_type'] = 'accuracy'
+        y_true = normalize_str_categories(y_true)
+        y_pred = normalize_str_categories(y_pred)
+        score_value = accuracy_score(y_true, y_pred)
+        logging.info(f"   🎯 Exact Accuracy:     {score_value:.2%} (Target: >= {validation_threshold:.0%})")
+        validation_passed = score_value >= validation_threshold
 
-    logger.log("-" * 60)
+    # --- CONTINUOUS LOGIC (SENTIMENT) ---
+    elif feature_type == 'continuous':
+
+        validation_results['validation_score_type'] = 'error'
+        score_value = mean_absolute_error(y_true, y_pred)
+        logging.info(f"   📉 Mean Absolute Error (MAE): {score_value:.4f} (Target: <= {validation_threshold})")        
+        validation_passed = score_value <= validation_threshold
+        
+    validation_results['validation_score'] = float(score_value)
+    validation_results['validation_threshold'] = float(validation_threshold)
+    validation_results['validation_passed'] = bool(validation_passed)
+
+    logging.info("   ✅ SUCCESS: validation passed.") if validation_passed else logging.info("   🛑 FAILURE: validation not passed.")
+   
+    os.makedirs(validation_results_dir, exist_ok=True)
+    validation_results_filename = f"validation_results_{feature_name}.json"
+    validation_results_path = os.path.join(validation_results_dir, validation_results_filename)
+    with open(validation_results_path, "w", encoding="utf-8") as f:
+        json.dump(validation_results, f, ensure_ascii=False, indent=4)
 
 #==============================================================================
 
-def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, batch_save_size, pilot_mode, pilot_size, pilot_seed, client, logging): 
+def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
+                               batch_save_size, pilot_mode, pilot_size, pilot_seed, client): 
 
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
-    logging.info(f"STARTING GENERATION of {feature_name}")
+    logging.info(f"STARTING GENERATION of {feature_name.upper()}")
     logging.info(f"MODE: {mode_msg}")
 
     few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
@@ -608,8 +642,9 @@ def run_generation_for_feature(feature_name, feature_file_path, feature_config, 
     # 5. PROCESSING LOOP
     results_buffer = [] 
     n_processed_records = 0
+    feature_type = feature_config['type']
     
-    for row in df_to_process.iter_rows(named=True):
+    for i, row in enumerate(df_to_process.iter_rows(named=True)):
         comment_id = row['comment_id']
         text_input = row['text_content']
                 
@@ -625,30 +660,28 @@ def run_generation_for_feature(feature_name, feature_file_path, feature_config, 
             predicted_value = response_json.get(feature_name)
             
             # Safety Casting based on feature_config
-            if feature_config['type'] == 'ordinal':
+            if feature_type == 'ordinal':
+                # Integer conversion for Ordinal
                 predicted_value = int(predicted_value) if predicted_value is not None else -1
-                true_score = int(true_score)
             
-            elif feature_config['type'] == 'continuous':
-                # Float conversion for Sentiment
+            elif feature_type == 'continuous':
+                # Float conversion for continuous
                 predicted_value = float(predicted_value) if predicted_value is not None else 0.0
-                true_score = float(true_score)
 
             else:
-                # Categorical (String)
+                # String conversion for Categorical
                 predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
-                true_score = str(true_score)
 
         except Exception as e:
             logging.warning(f"⚠️ Error in record {i}: {e}")
-            if feature_config['type'] == 'ordinal': predicted_value = -1
-            elif feature_config['type'] == 'continuous': predicted_value = 0.0
+            if feature_type == 'ordinal': predicted_value = -1
+            elif feature_type == 'continuous': predicted_value = 0.0
             else: predicted_value = "ERROR"
         
         # Add result to buffer
         results_buffer.append({
             "comment_id": comment_id,
-            feature_name: llm_response
+            feature_name: predicted_value
         })
         
         n_processed_records += 1
@@ -676,26 +709,5 @@ def run_generation_for_feature(feature_name, feature_file_path, feature_config, 
             results_buffer = []
 
     logging.info("✅ Generation Process Completed.")
-
-#==============================================================================
-
-class ValidationLogger:
-    """Handles logger to both console and text file."""
-
-    def __init__(self, reports_dir, feature_name):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.filename = os.path.join(reports_dir, f"val_report_{feature_name}_{timestamp}.txt")
-        self.buffer = []
-        self.log(f"VALIDATION REPORT: {feature_name.upper()} - {timestamp}")
-        self.log("="*60 + "\n")
-
-    def log(self, message):
-        print(message)
-        self.buffer.append(str(message))
-
-    def save(self):
-        with open(self.filename, 'w', encoding='utf-8') as f:
-            f.write("\n".join(self.buffer))
-        print(f"\n✅ Report saved to: {self.filename}")
 
 #==============================================================================

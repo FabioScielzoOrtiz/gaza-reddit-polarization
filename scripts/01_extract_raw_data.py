@@ -1,3 +1,5 @@
+# Imports
+
 import polars as pl
 import datetime as dt
 from dotenv import load_dotenv
@@ -99,5 +101,5 @@ if __name__ == "__main__":
     else:
         logging.warning("❌ No comment data was extracted.")
       
-    logging.info(f"📥 DATA EXTRACTION COMPLETED")
+    logging.info(f"✅ DATA EXTRACTION COMPLETED")
     

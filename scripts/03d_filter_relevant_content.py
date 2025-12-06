@@ -16,12 +16,15 @@ processed_data_path = os.path.join(processed_data_dir, '03d_processed_data.parqu
 
 sys.path.append(project_path)
 
-from config.config_03b import (
-    RELEVANCE_CUTOFF
+from config.config_03bcd_04bc import (
+    FEATURE_CONFIG
 )
 
+FEATURE_NAME = 'content_relevance_score'
+RELEVANCE_CUTOFF =  FEATURE_CONFIG[FEATURE_NAME]['cutoff']
+print(RELEVANCE_CUTOFF)
 df_base = pl.read_parquet(base_data_path)
 feature_df = pl.read_parquet(feature_file_path)
 processed_df = df_base.join(feature_df, how='left', on='comment_id')
-processed_df = processed_df.filter(pl.col('content_relevance_score') >= RELEVANCE_CUTOFF)
+processed_df = processed_df.filter(pl.col(FEATURE_NAME) >= RELEVANCE_CUTOFF).drop(FEATURE_NAME)
 processed_df.write_parquet(processed_data_path)

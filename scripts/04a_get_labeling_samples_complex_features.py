@@ -50,10 +50,18 @@ def main():
         logging.error(f"❌ Error loading data: {e}")
         exit()
 
-    run_labeling_samples(df, DATA_COLUMNS_TO_INCLUDE, FEATURES_TO_LABEL, 
-                         SAMPLE_N, SAMPLE_SEED, VAL_SAMPLE_RATIO, 
-                         MANUAL_TRAIN_IDS, MANUAL_VAL_IDS,
-                         train_sample_path, val_sample_path)
+    run_labeling_samples(
+        df, 
+        DATA_COLUMNS_TO_INCLUDE, 
+        FEATURES_TO_LABEL, 
+        SAMPLE_N, 
+        SAMPLE_SEED, 
+        VAL_SAMPLE_RATIO, 
+        MANUAL_TRAIN_IDS, 
+        MANUAL_VAL_IDS,
+        train_sample_path, 
+        val_sample_path
+    )
     
 if __name__ == "__main__":
     main()

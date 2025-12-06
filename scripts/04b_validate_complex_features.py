@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, logging
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -8,10 +8,10 @@ project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
 # --- CONFIGURATION ---
-from feature_config.config_03b_04b import (
+from config.config_03bcd_04bc import (
     FEATURE_CONFIG
 )
-from feature_config.config_04b import (
+from config.config_04abc import (
     FEATURES_TO_VALIDATE
 )
 
@@ -19,14 +19,13 @@ from feature_config.config_04b import (
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
 train_sample_path = os.path.join(labeling_dir, '04a_train_sample_relevance.json')
 val_sample_path = os.path.join(labeling_dir, '04a_val_sample_relevance.json')
-reports_dir = os.path.join(project_path, 'data', 'validation_reports')
-os.makedirs(reports_dir, exist_ok=True)
+validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
 
 # Import LLM function (Ensure utils is updated)
-from src.feature_engineering_utils import (ValidationLogger, 
-                                           load_labeled_sample,
-                                           run_validation_for_feature 
-                                           )
+from src.feature_engineering_utils import (
+    load_labeled_sample,
+    run_validation_for_feature 
+)
 
 load_dotenv()
 
@@ -35,16 +34,14 @@ load_dotenv()
 
 def main():
 
-    # Initialize Logger
-    logger = ValidationLogger()
-
-    logger.log("🚀 STARTING MULTI-FEATURE VALIDATION")
+    # Initialize logging
+    logging.info("🚀 STARTING MULTI-FEATURE VALIDATION")
     
     # Init Client
     try:
         client = OpenAI()
     except Exception:
-        logger.error("❌ OpenAI Client failed.")
+        logging.error("❌ OpenAI Client failed.")
         exit()
     
     # Load Data
@@ -55,10 +52,14 @@ def main():
 
         feature_config = FEATURE_CONFIG.get(feature_name)
 
-        run_validation_for_feature(feature_name, feature_config, df_train, df_val, client, logger)
-
-    # Save final logger
-    logger.save()
+        run_validation_for_feature(
+            feature_name, 
+            feature_config, 
+            df_train, 
+            df_val, 
+            client, 
+            validation_results_dir
+        )
 
 if __name__ == "__main__":
     main()
