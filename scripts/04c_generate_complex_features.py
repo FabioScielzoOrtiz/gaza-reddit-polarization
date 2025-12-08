@@ -49,7 +49,7 @@ from config.config_03bcd_04bc import (
 )
 
 # Import Utils
-from src.feature_engineering_utils import load_labeled_sample, run_generation_for_feature_async
+from src.feature_engineering_utils import load_labeled_sample, run_generation_for_feature
 
 #################################################################################################
 
@@ -102,7 +102,7 @@ async def main():
             feature_config = FEATURE_CONFIG.get(feature_name)
 
             # Llamada Asíncrona Masiva
-            await run_generation_for_feature_async(
+            await run_generation_for_feature(
                 feature_name, 
                 feature_file_path, 
                 feature_config, 

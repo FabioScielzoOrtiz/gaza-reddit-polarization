@@ -31,16 +31,16 @@ processed_data_path = os.path.join(processed_data_dir, '04d_processed_data.parqu
 
 def main(): 
        
-    df_base = pl.read_parquet(base_data_path)
+    df = pl.read_parquet(base_data_path)
 
     for filename in os.listdir(features_dir):
         feature_name = filename.split('.')[0]
         if feature_name != 'content_relevance_score':
             feature_path = os.path.join(features_dir, filename)
             feature_df = pl.read_parquet(feature_path)
-            df_base = df_base.join(feature_df, how='left', on='comment_id')
+            df = df.join(feature_df, how='left', on='comment_id')
 
-    df_base.write_parquet(processed_data_path)
+    df.write_parquet(processed_data_path)
 
     logging.info(f'✅ Complex features added successfully')
     logging.info(f'📁 Processed file saved at {processed_data_path}.')

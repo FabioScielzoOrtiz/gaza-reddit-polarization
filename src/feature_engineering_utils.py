@@ -1,3 +1,7 @@
+#################################################################################################
+
+# Imports 
+
 import os
 import json
 import logging
@@ -6,10 +10,16 @@ import polars as pl
 import numpy as np
 from openai import AsyncOpenAI
 from sklearn.metrics import accuracy_score, mean_absolute_error
-from tqdm.asyncio import tqdm_asyncio # Para barra de progreso asíncrona
+from tqdm.asyncio import tqdm_asyncio 
+from sklearn.decomposition import PCA
+
+#################################################################################################
 
 # Configurar logging
+
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+#################################################################################################
 
 # ==============================================================================
 # 1. CONTENT RELEVANCE SCORE (Filtrado) - ASYNC
@@ -68,6 +78,7 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
         logging.error(f"Error in OpenAI API call (Relevance): {e}")
         return json.dumps({"content_relevance_score": None})
 
+#################################################################################################
 
 # ==============================================================================
 # 2. POLITICAL STANCE SCORE - ASYNC
@@ -120,7 +131,9 @@ Return a single JSON object. Example: {{"political_stance": 2}}
     except Exception as e:
         logging.error(f"Error in OpenAI API call (Stance): {e}")
         return json.dumps({"political_stance": None})
-    
+
+#################################################################################################
+
 # ==============================================================================
 # 3. DISCOURSE TONE - ASYNC
 # ==============================================================================
@@ -168,6 +181,7 @@ Example: {{"discourse_tone": "Sarcastic"}}
         logging.error(f"Error in Tone: {e}")
         return json.dumps({"discourse_tone": None})
 
+#################################################################################################
 
 # ==============================================================================
 # 4. DOMINANT FRAME - ASYNC
@@ -216,6 +230,7 @@ Example: {{"dominant_frame": "Security/Military"}}
         logging.error(f"Error in Frame: {e}")
         return json.dumps({"dominant_frame": None})
 
+#################################################################################################
 
 # ==============================================================================
 # 5. ARGUMENT QUALITY SCORE - ASYNC
@@ -263,6 +278,8 @@ Example: {{"argument_quality_score": 3}}
     except Exception as e:
         logging.error(f"Error in Quality: {e}")
         return json.dumps({"argument_quality_score": None})
+
+#################################################################################################
 
 # ==============================================================================
 # 5. SENTIMENT SCORE - ASYNC
@@ -316,7 +333,9 @@ Example: {{"sentiment_score": -0.45}}
     except Exception as e:
         logging.error(f"Error in Sentiment: {e}")
         return json.dumps({"sentiment_score": None})
-    
+
+#################################################################################################
+
 # ==============================================================================
 # Helper additional functions
 # ==============================================================================
@@ -375,6 +394,8 @@ def adjacent_accuracy(y_true, y_pred, adjacent_tol=1):
 #==============================================================================
 def normalize_str_categories(values):
     return [str(l).strip().lower() if l is not None else "unknown" for l in values]
+
+#################################################################################################
 
 #==============================================================================
 # VALIDATION RUNNER (SEQUENTIAL ASYNC)
@@ -495,6 +516,8 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     with open(validation_results_path, "w", encoding="utf-8") as f:
         json.dump(validation_results, f, ensure_ascii=False, indent=4)
 
+#################################################################################################
+
 #==============================================================================
 # GENERATION RUNNER (PARALLEL ASYNC)
 #==============================================================================
@@ -532,9 +555,11 @@ async def process_single_row(sem, row, client, feature_name, feature_config, few
             "comment_id": comment_id,
             feature_name: predicted_value
         }
+    
+##############################################################
 
-async def run_generation_for_feature_async(feature_name, feature_file_path, feature_config, df, df_train, 
-                                           batch_save_size, pilot_mode, pilot_size, pilot_seed, client: AsyncOpenAI): 
+async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
+                                    batch_save_size, max_concurrent_request, pilot_mode, pilot_size, pilot_seed, client): 
 
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
     logging.info(f"STARTING GENERATION of {feature_name.upper()}")
@@ -568,9 +593,7 @@ async def run_generation_for_feature_async(feature_name, feature_file_path, feat
     logging.info(f"⏳ Processing {total_records} records with AsyncIO...")
 
     # 2. CONCURRENCY CONTROL
-    # Ajusta este número según tu Tier de OpenAI (20-50 es seguro para Tier 1-2)
-    MAX_CONCURRENT_REQUESTS = 40 
-    sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    sem = asyncio.Semaphore(max_concurrent_request)
 
     # 3. BATCH PROCESSING LOOP
     for i in range(0, total_records, batch_save_size):
@@ -599,3 +622,152 @@ async def run_generation_for_feature_async(feature_name, feature_file_path, feat
                 df_new_chunk.write_parquet(feature_file_path)
 
     logging.info("✅ Async Generation Process Completed.")
+
+
+#################################################################################################
+
+async def fetch_embeddings_for_batch(client, texts_batch, model):
+    """Obtiene embeddings para un lote de textos en una sola llamada."""
+    try:
+        # Reemplazar saltos de línea es recomendación oficial de OpenAI para embeddings
+        clean_texts = [t.replace("\n", " ") for t in texts_batch]
+        
+        resp = await client.embeddings.create(
+            input=clean_texts,
+            model=model
+        )
+        # La respuesta viene ordenada, extraemos los vectores
+        return [data.embedding for data in resp.data]
+    except Exception as e:
+        logging.error(f"❌ Error in embedding batch: {e}")
+        # Retorna lista de Nones del tamaño del batch para no romper índices
+        return [None] * len(texts_batch)
+
+#################################################################################################
+
+async def process_embeddings_for_batch(sem, batch, client, model):
+   
+    async with sem:
+        texts_batch = [r['text_content'] for r in batch]
+        ids = [r['comment_id'] for r in batch]
+        vectors = await fetch_embeddings_for_batch(client, texts_batch, model)
+        
+        batch_results = []
+        for cid, vec in zip(ids, vectors):
+            if vec is not None:
+                batch_results.append({"comment_id": cid, "raw_embedding": vec})
+        return batch_results
+
+#################################################################################################
+
+async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_concurrent_request, model, client):
+
+    # Verificamos si ya existen embeddings crudos guardados para ahorrar dinero
+    if os.path.exists(raw_embeddings_path):
+
+        df_raw = pl.read_parquet(raw_embeddings_path)
+        logging.info(f"🔄 Found existing RAW embeddings file for {len(df_raw)} records. Loading...")
+        
+        # Identificar qué falta
+        existing_ids = set(df_raw['comment_id'].to_list())
+        df_to_process = df.filter(~pl.col('comment_id').is_in(existing_ids))
+
+    else:
+        
+        df_raw = pl.DataFrame(schema={'comment_id': pl.Utf8, 'raw_embedding': pl.List(pl.Float64)})
+        df_to_process = df
+
+    # Si hay nuevos datos, procesamos
+    if len(df_to_process) > 0:
+        
+        logging.info(f"⚡ Generating embeddings for {len(df_to_process)} records...")
+        
+        # Convertir a listas para iterar
+        records = df_to_process.select(['comment_id', 'text_content']).to_dicts()
+        
+        # Preparar lotes
+        batches = [records[i:i + batch_size] for i in range(0, len(records), batch_size)]
+        
+        new_results = []
+        
+        # CONCURRENCY CONTROL (Embeddings tiene rate limits altos, 50 es seguro)
+        sem = asyncio.Semaphore(max_concurrent_request)
+
+        # Ejecutar peticiones
+        tasks = [
+            process_embeddings_for_batch(sem=sem, batch=b, client=client, model=model) 
+            for b in batches
+        ]
+        results_nested = await tqdm_asyncio.gather(*tasks)
+        
+        # Aplanar lista de listas
+        for batch_res in results_nested:
+            new_results.extend(batch_res)
+
+        # Guardar Raw Embeddings
+        if new_results:
+
+            df_new = pl.DataFrame(new_results)
+            
+            # Unir con lo existente
+            df_raw = pl.concat([df_raw, df_new], how="vertical")
+            
+            # Guardar en disco (Checkpoint)
+            df_raw.write_parquet(raw_embeddings_path)
+            logging.info(f"💾 Saved raw embeddings checkpoint to: {raw_embeddings_path}")
+   
+    else:
+        logging.info("✅ All records already have embeddings.")
+
+#################################################################################################
+
+def run_reduce_embedding_dimension(df_raw_embeddings, n_pca_components, pca_embeddings_path): 
+
+    # ==========================================================================
+    #  REDUCCIÓN DE DIMENSIONALIDAD (PCA)
+    # ==========================================================================
+
+    # Convertir columna de listas polars a matriz numpy
+    # (Necesitamos todos los datos para ajustar el PCA correctamente)
+    embeddings_matrix = np.array(df_raw_embeddings['raw_embedding'].to_list())
+    
+    logging.info(f"📉 Running PCA to reduce {embeddings_matrix.shape[0]} dims -> {n_pca_components} dims...")
+
+    # Obtenemos filas (muestras) y columnas (dimensiones originales)
+    n_samples, n_features = embeddings_matrix.shape
+
+    # PCA requiere que n_components sea menor o igual al MÍNIMO de filas o columnas
+    min_shape = min(n_samples, n_features)
+    if n_pca_components > min_shape:
+        logging.error(
+            f"❌ Cannot run PCA with n_pca_components={n_pca_components} since  n_pca_components > min(n_samples, n_features)={min_shape}. "
+        )
+
+    # Ajustar PCA
+    pca = PCA(n_components=n_pca_components)
+    reduced_embeddings_matrix = pca.fit_transform(embeddings_matrix)
+    
+    explained_variance = np.sum(pca.explained_variance_ratio_)
+    logging.info(f"📊 PCA Completed. Total Explained Variance: {explained_variance:.2%}")
+
+    # ==========================================================================
+    # GUARDAR RESULTADO FINAL
+    # ==========================================================================
+
+    # Crear diccionario para el DataFrame
+    pca_data = {
+        "comment_id": df_raw_embeddings['comment_id']
+    }
+    
+    # Añadir columnas dinámicas: embedding_pca_01, embedding_pca_02...
+    for i in range(n_pca_components):
+        col_name = f"embedding_pca_{i+1:02d}" # ej: embedding_pca_01
+        pca_data[col_name] = reduced_embeddings_matrix[:, i]
+
+    df_embeddings_pca = pl.DataFrame(pca_data)
+
+    # Guardar
+    df_embeddings_pca.write_parquet(pca_embeddings_path)
+    logging.info(f"✅ Embeddings dimension reduced.")
+
+#################################################################################################

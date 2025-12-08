@@ -35,9 +35,9 @@ RELEVANCE_CUTOFF =  FEATURE_CONFIG[FEATURE_NAME]['cutoff']
 
 def main():
 
-    df_base = pl.read_parquet(base_data_path)
+    df = pl.read_parquet(base_data_path)
     feature_df = pl.read_parquet(feature_file_path)
-    processed_df = df_base.join(feature_df, how='left', on='comment_id')
+    processed_df = df.join(feature_df, how='left', on='comment_id')
     processed_df = processed_df.filter(pl.col(FEATURE_NAME) >= RELEVANCE_CUTOFF).drop(FEATURE_NAME)
     processed_df.write_parquet(processed_data_path)
     logging.info(f'✅ Relevant content filtered successfully. Processed file saved at {processed_data_path}.')
