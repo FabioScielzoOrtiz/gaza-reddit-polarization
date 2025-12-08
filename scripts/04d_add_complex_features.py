@@ -42,7 +42,7 @@ def main():
 
     df.write_parquet(processed_data_path)
 
-    logging.info(f'✅ Complex features added successfully')
+    logging.info(f'✅ Complex features added successfully.')
     logging.info(f'📁 Processed file saved at {processed_data_path}.')
 
 #################################################################################################
