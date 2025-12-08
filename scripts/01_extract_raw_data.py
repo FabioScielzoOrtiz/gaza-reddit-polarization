@@ -1,4 +1,6 @@
-# Imports
+#################################################################################################
+
+# --- IMPORTS ---
 
 import polars as pl
 import datetime as dt
@@ -8,20 +10,28 @@ import logging
 import sys
 import time
 
-# ------------------------------------------------------------------------------------------
+#################################################################################################
+
+# --- PATH SETUP ---
+
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
-# ------------------------------------------------------------------------------------------
+
+#################################################################################################
+
+# --- IMPORTS ---
 
 from config.config_01 import (
     LIST_SUBREDDITS, LIST_QUERIES, LIST_SORTS, 
     MAX_LIMIT, TIME_FILTER
 )
-# Se usa 'data_extraction_uitls' para coincidir con el nombre de archivo subido
+
 from src.data_extraction_uitls import authenticate_praw, run_extraction 
 
-# --- 0. CONFIGURATION & SETUP ---
+#################################################################################################
+
+# --- LOGGING CONFIGURATION ---
 
 # Dynamic data_extraction_id based on the current datetime (YYYYMMDDHHMMSS)
 data_extraction_id = dt.datetime.now().strftime('%Y%m%d%H%M%S') 
@@ -43,24 +53,32 @@ logging.basicConfig(
 )
 logging.info(f"Logging configured. Output file: {logs_file_path}")
 
-# Load environment variables
-load_dotenv(os.path.join(project_path, '.env'))
+#################################################################################################
 
+# --- LOAD ENVIRONMENTAL VARIABLES (Reddit API) ---
+
+load_dotenv()
 CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 USER_AGENT = "ResearchScript v1.0 by /u/Hour_Sell5070" 
 
-# --- MAIN EXECUTION BLOCK ---
+#################################################################################################
 
-if __name__ == "__main__":
-    
-    # 1. Authenticate and exit if failed 
+# --- MAIN EXECUTION ---
+
+def main():
+
+    ###########################################################################
+
+    # Authenticate and exit if failed 
     reddit = authenticate_praw(CLIENT_ID, CLIENT_SECRET, USER_AGENT)
     if not reddit:
         logging.error("❌ Authentication failed. Exiting script.")
         sys.exit(1)
+
+    ###########################################################################
         
-    # 2. Run the full extraction process
+    # Run the full extraction process
     logging.info("Starting data extraction...")
     start_time = time.time()
     post_data_list, comment_data_list = run_extraction(
@@ -74,7 +92,9 @@ if __name__ == "__main__":
     end_time = time.time()
     logging.info(f"✅ Data Extraction completed in {round((end_time - start_time)/60, 2)} minutes.")
 
-    # 3. Convert to Polars DataFrames and Save (RAW Data Only)
+    ###########################################################################
+
+    # Convert to Polars DataFrames and Save (RAW Data Only)
     
     logging.info("Saving extracted data")
 
@@ -102,4 +122,10 @@ if __name__ == "__main__":
         logging.warning("❌ No comment data was extracted.")
       
     logging.info(f"✅ DATA EXTRACTION COMPLETED")
-    
+
+#################################################################################################
+
+if __name__ == "__main__":
+    main()
+
+#################################################################################################

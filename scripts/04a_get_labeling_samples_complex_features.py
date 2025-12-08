@@ -1,11 +1,31 @@
+#################################################################################################
+
 import os, sys
 import logging 
 import polars as pl
+
+#################################################################################################
+
+# --- LOGGING SETUP ---
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+#################################################################################################
 
 # --- PATH CONFIGURATION ---
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
+
+# Input: Base processed data (from Step 03d)
+base_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
+
+# Output: New dedicated folder for manual labeling inputs
+labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
+train_sample_path = os.path.join(labeling_dir, '04a_train_sample_relevance.json')
+val_sample_path = os.path.join(labeling_dir, '04a_val_sample_relevance.json')
+os.makedirs(labeling_dir, exist_ok=True)
+
+#################################################################################################
 
 from config.config_03a_04a import (
     SAMPLE_N, # Total target number of samples (Manual + Random) 
@@ -23,25 +43,19 @@ from config.config_04abc import (
 
 from src.feature_engineering_utils import run_labeling_samples
 
+#################################################################################################
 
-# --- LOGGING SETUP ---
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-
-# Input: Base processed data (from Step 03d)
-base_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
-
-# Output: New dedicated folder for manual labeling inputs
-labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
-os.makedirs(labeling_dir, exist_ok=True)
+# --- MAIN EXECUTION ---
 
 def main():
-
-    train_sample_path = os.path.join(labeling_dir, '04a_train_sample_relevance.json')
-    val_sample_path = os.path.join(labeling_dir, '04a_val_sample_relevance.json')
+    
+    ###########################################################################
 
     if os.path.exists(train_sample_path) and os.path.exists(val_sample_path):
         logging.info("⛔ Train and validation samples already exist --> Process Stopped")
         exit()
+        
+    ###########################################################################
 
     try:
         df = pl.read_parquet(base_data_path)
@@ -49,6 +63,8 @@ def main():
     except Exception as e:
         logging.error(f"❌ Error loading data: {e}")
         exit()
+
+    ###########################################################################
 
     run_labeling_samples(
         df, 
@@ -62,6 +78,10 @@ def main():
         train_sample_path, 
         val_sample_path
     )
+
+#################################################################################################
     
 if __name__ == "__main__":
     main()
+
+#################################################################################################

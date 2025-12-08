@@ -1,12 +1,16 @@
+#################################################################################################
 
-# TODO: pedirle a gemini que lo comente (en ingles, siguiendo el estilo de los otros scripts) y lo mejore (si fuera necesario)
+# --- IMPORTS ---
 
-import os, sys
+import os, sys, logging
 import polars as pl
 
-# --- PATH CONFIGURATION ---
+#################################################################################################
+
+# --- PATH SETUP ---
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
+sys.path.append(project_path)
 
 features_dir = os.path.join(project_path, 'data', 'features')
 processed_data_dir = os.path.join(project_path, 'data', 'processed_data')
@@ -14,7 +18,9 @@ feature_file_path = os.path.join(features_dir, 'content_relevance_score.parquet'
 base_data_path = os.path.join(processed_data_dir, '02_processed_data.parquet')
 processed_data_path = os.path.join(processed_data_dir, '03d_processed_data.parquet')
 
-sys.path.append(project_path)
+#################################################################################################
+
+# --- IMPORTS ---
 
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG
@@ -22,9 +28,19 @@ from config.config_03bcd_04bc import (
 
 FEATURE_NAME = 'content_relevance_score'
 RELEVANCE_CUTOFF =  FEATURE_CONFIG[FEATURE_NAME]['cutoff']
-print(RELEVANCE_CUTOFF)
-df_base = pl.read_parquet(base_data_path)
-feature_df = pl.read_parquet(feature_file_path)
-processed_df = df_base.join(feature_df, how='left', on='comment_id')
-processed_df = processed_df.filter(pl.col(FEATURE_NAME) >= RELEVANCE_CUTOFF).drop(FEATURE_NAME)
-processed_df.write_parquet(processed_data_path)
+
+#################################################################################################
+
+# --- MAIN EXECUTION ---
+
+def main():
+
+    df_base = pl.read_parquet(base_data_path)
+    feature_df = pl.read_parquet(feature_file_path)
+    processed_df = df_base.join(feature_df, how='left', on='comment_id')
+    processed_df = processed_df.filter(pl.col(FEATURE_NAME) >= RELEVANCE_CUTOFF).drop(FEATURE_NAME)
+    processed_df.write_parquet(processed_data_path)
+    logging.info(f'✅ Relevant content filtered successfully. Processed file saved at {processed_data_path}.')
+
+if __name__ == "__main__":
+    main()

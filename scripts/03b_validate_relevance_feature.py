@@ -1,13 +1,35 @@
+#################################################################################################
+
+# --- IMPORTS ---
+
 import os, sys, logging
-from openai import OpenAI
+import asyncio # New
+from openai import AsyncOpenAI # New
 from dotenv import load_dotenv
 
-# --- PATH CONFIGURATION ---
+#################################################################################################
+
+# --- LOGGING CONFIGURATION ---
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+#################################################################################################
+
+# --- PATH SETUP ---
+
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
-# --- CONFIGURATION ---
+labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
+train_sample_path = os.path.join(labeling_dir, '03a_train_sample_relevance.json')
+val_sample_path = os.path.join(labeling_dir, '03a_val_sample_relevance.json')
+validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
+
+#################################################################################################
+
+# --- IMPORTS ---
+
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG
 )
@@ -15,44 +37,48 @@ from config.config_03abc import (
     FEATURES_TO_VALIDATE
 )
 
-# Directories
-labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
-train_sample_path = os.path.join(labeling_dir, '03a_train_sample_relevance.json')
-val_sample_path = os.path.join(labeling_dir, '03a_val_sample_relevance.json')
-validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
-
-# Import LLM function (Ensure utils is updated)
+# Import LLM function (utils updated to async)
 from src.feature_engineering_utils import (
     load_labeled_sample,
     run_validation_for_feature 
 )
+#################################################################################################
+
+# --- LOAD ENVIRONMENTAL VARIABLES (OpenAI API) ---
 
 load_dotenv()
 
+#################################################################################################
 
 # --- MAIN EXECUTION ---
 
-def main():
-
-    # Initialize logging
-    logging.info("🚀 STARTING MULTI-FEATURE VALIDATION")
+async def main():
     
-    # Init Client
+    ###########################################################################
+
+    logging.info("🚀 STARTING MULTI-FEATURE VALIDATION (ASYNC)")
+    
+    # Init Async Client
     try:
-        client = OpenAI()
+        client = AsyncOpenAI()
     except Exception:
         logging.error("❌ OpenAI Client failed.")
         exit()
+
+    ###########################################################################
     
     # Load Data
     df_train = load_labeled_sample(train_sample_path)
     df_val = load_labeled_sample(val_sample_path)
 
+    ###########################################################################
+
     for feature_name in FEATURES_TO_VALIDATE:
 
         feature_config = FEATURE_CONFIG.get(feature_name)
 
-        run_validation_for_feature(
+        # Usamos await porque run_validation_for_feature ahora es async def
+        await run_validation_for_feature(
             feature_name, 
             feature_config, 
             df_train, 
@@ -61,5 +87,9 @@ def main():
             validation_results_dir
         )
 
+#################################################################################################
+
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
+
+#################################################################################################

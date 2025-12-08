@@ -3,14 +3,14 @@
 # --- IMPORTS ---
 
 import os, sys, logging
-import asyncio # New
-from openai import AsyncOpenAI # New
+from openai import OpenAI
 from dotenv import load_dotenv
 
 #################################################################################################
 
 # --- LOGGING CONFIGURATION ---
 
+# Set up basic configuration to log INFO level messages.
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 #################################################################################################
@@ -37,7 +37,7 @@ from config.config_04abc import (
     FEATURES_TO_VALIDATE
 )
 
-# Import LLM function (utils updated to async)
+# Import LLM function (Ensure utils is updated)
 from src.feature_engineering_utils import (
     load_labeled_sample,
     run_validation_for_feature 
@@ -52,15 +52,16 @@ load_dotenv()
 
 # --- MAIN EXECUTION ---
 
-async def main():
+def main():
     
     ###########################################################################
 
-    logging.info("🚀 STARTING MULTI-FEATURE VALIDATION (ASYNC)")
+    # Initialize logging
+    logging.info("🚀 STARTING MULTI-FEATURE VALIDATION")
     
-    # Init Async Client
+    # Init Client
     try:
-        client = AsyncOpenAI()
+        client = OpenAI()
     except Exception:
         logging.error("❌ OpenAI Client failed.")
         exit()
@@ -77,8 +78,7 @@ async def main():
 
         feature_config = FEATURE_CONFIG.get(feature_name)
 
-        # Usamos await porque run_validation_for_feature ahora es async def
-        await run_validation_for_feature(
+        run_validation_for_feature(
             feature_name, 
             feature_config, 
             df_train, 
@@ -90,6 +90,6 @@ async def main():
 #################################################################################################
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
 
 #################################################################################################

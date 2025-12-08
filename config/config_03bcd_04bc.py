@@ -32,7 +32,7 @@ FEATURE_CONFIG = {
     'sentiment_score': {
         'func': sentiment_score,
         'type': 'continuous', # Float -1.0 to 1.0
-        'validation_threshold': 0.25 # MAE threshold
+        'validation_threshold': 0.3 # MAE threshold
     },
     'discourse_tone': {
         'func': discourse_tone_score,

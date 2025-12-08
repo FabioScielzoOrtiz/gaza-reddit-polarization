@@ -1,21 +1,44 @@
+#################################################################################################
+
+# --- IMPORTS ---
+
 import os, sys
 import json
 import polars as pl
 import logging
-from openai import OpenAI
+import asyncio # New
+from openai import AsyncOpenAI # New
 from dotenv import load_dotenv
 
+#################################################################################################
+
+# --- LOGGING CONFIGURATION ---
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+#################################################################################################
+
 # --- PATH CONFIGURATION ---
+
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.append(project_path)
 
-# --- CONFIGURATION ---
+processed_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
+train_sample_path = os.path.join(project_path, 'data', 'labeled_samples', '04a_train_sample_relevance.json')
+validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
+
+features_dir = os.path.join(project_path, 'data', 'features')
+os.makedirs(features_dir, exist_ok=True)
+
+#################################################################################################
+
+# --- IMPORTS ---
+
 from config.config_03c_04c import (    
     PILOT_MODE, 
     PILOT_SIZE, 
     PILOT_SEED,
-    # Save progress every N records 
     BATCH_SAVE_SIZE
 )
 from config.config_04abc import (
@@ -25,31 +48,22 @@ from config.config_03bcd_04bc import (
     FEATURE_CONFIG
 )
 
-
-# Input Data path (Full processed dataset)
-processed_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
-
-# Training Data path (Expert samples for Few-Shot Learning)
-train_sample_path = os.path.join(project_path, 'data', 'labeled_samples', '04a_train_sample_relevance.json')
-
-# Validation results path
-validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
-
-# Output File path
-features_dir = os.path.join(project_path, 'data', 'features')
-os.makedirs(features_dir, exist_ok=True)
-
 # Import Utils
-from src.feature_engineering_utils import load_labeled_sample, run_generation_for_feature
+from src.feature_engineering_utils import load_labeled_sample, run_generation_for_feature_async
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
+#################################################################################################
+
+# --- LOAD ENVIRONMENTAL VARIABLES ---
+
 load_dotenv()
 
+#################################################################################################
 
 # --- MAIN EXECUTION ---
 
-def main():
+async def main():
+
+    ###########################################################################
 
     try:
         df = pl.read_parquet(processed_data_path)
@@ -58,27 +72,37 @@ def main():
         logging.error(f"❌ Failed to load base data: {e}")
         exit()
 
+    df_train = load_labeled_sample(train_sample_path)
+
+    ###########################################################################
+
     try:
-        client = OpenAI()
+        client = AsyncOpenAI()
+        logging.info("🤖 Async Client Ready")
     except Exception as e:
         logging.error(f"❌ OpenAI Client Error: {e}")
         exit()
 
-    df_train = load_labeled_sample(train_sample_path)
+    ###########################################################################  
      
     for feature_name in FEATURES_TO_GENERATE:
-
+        
         validation_results_path = os.path.join(validation_results_dir, f"validation_results_{feature_name}.json")
+        
+        if not os.path.exists(validation_results_path):
+            logging.warning(f"⚠️ Validation file not found for {feature_name}. Skipping.")
+            continue
+
         with open(validation_results_path, "r", encoding="utf-8") as f:
             validation_results = json.load(f)
 
-        if validation_results['validation_passed']:
+        if validation_results.get('validation_passed', False):
 
             feature_file_path = os.path.join(features_dir, f'{feature_name}.parquet')
-
             feature_config = FEATURE_CONFIG.get(feature_name)
 
-            run_generation_for_feature(
+            # Llamada Asíncrona Masiva
+            await run_generation_for_feature_async(
                 feature_name, 
                 feature_file_path, 
                 feature_config, 
@@ -90,12 +114,13 @@ def main():
                 PILOT_SEED, 
                 client 
             )
-
+        
         else:
+            logging.warning(f'🛑 Validation not passed for {feature_name}. Generation skipped.')
 
-            logging.warning(f'🛑 Validation not passed for {feature_name}.\nPossible Solutions: a) Improve LLM Prompt b) Increase Few-Shot Samples')
-            logging.warning(f'⏭️ Generation skipped for {feature_name}')
-
+#################################################################################################
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
+
+#################################################################################################

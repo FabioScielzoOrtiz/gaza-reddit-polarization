@@ -1,23 +1,21 @@
 import os
 import json
 import logging
-import asyncio
 import polars as pl
 import numpy as np
-from openai import AsyncOpenAI
+from openai import OpenAI
 from sklearn.metrics import accuracy_score, mean_absolute_error
-from tqdm.asyncio import tqdm_asyncio # Para barra de progreso asíncrona
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # ==============================================================================
-# 1. CONTENT RELEVANCE SCORE (Filtrado) - ASYNC
+# 1. CONTENT RELEVANCE SCORE (Filtrado)
 # ==============================================================================
 
-async def content_relevance_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+def content_relevance_score(client: OpenAI, content: str, few_shot_examples: list = None):
     """
-    Calcula la relevancia temática usando ejemplos Few-Shot dinámicos (Versión Async).
+    Calcula la relevancia temática usando ejemplos Few-Shot dinámicos.
     """
 
     prompt = f"""
@@ -54,14 +52,14 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
 """
 
     try:
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini", 
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", # O el modelo que estés usando
             messages=[
                 {"role": "system", "content": "You are a helpful classification assistant. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0 
+            temperature=0.0 # Temperatura 0 para máxima consistencia y reproducibilidad
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -70,10 +68,14 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
 
 
 # ==============================================================================
-# 2. POLITICAL STANCE SCORE - ASYNC
+# 2. POLITICAL STANCE SCORE
 # ==============================================================================
 
-async def political_stance_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+def political_stance_score(client: OpenAI, content: str, few_shot_examples: list = None):
+    """
+    Calcula la postura política usando ejemplos Few-Shot dinámicos.
+    """
+
     prompt = f"""
 You are an expert political analyst for a study on the Gaza conflict.
 
@@ -106,8 +108,9 @@ Return a single JSON object. Example: {{"political_stance": 2}}
 **TEXT TO CLASSIFY:**
 {content}
 """
+
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a political analyst. Output JSON only."},
@@ -122,10 +125,14 @@ Return a single JSON object. Example: {{"political_stance": 2}}
         return json.dumps({"political_stance": None})
     
 # ==============================================================================
-# 3. DISCOURSE TONE - ASYNC
+# 3. DISCOURSE TONE (Nuevo)
 # ==============================================================================
 
-async def discourse_tone_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+def discourse_tone_score(client: OpenAI, content: str, few_shot_examples: list = None):
+    """
+    Identifica el tono dominante del discurso (Categórica Nominal).
+    """
+
     prompt = f"""
 You are an expert linguist analyzing political discourse on Reddit regarding the Gaza conflict.
 
@@ -154,7 +161,7 @@ Example: {{"discourse_tone": "Sarcastic"}}
 {content}
 """
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a linguist. Output valid JSON only."},
@@ -170,10 +177,14 @@ Example: {{"discourse_tone": "Sarcastic"}}
 
 
 # ==============================================================================
-# 4. DOMINANT FRAME - ASYNC
+# 4. DOMINANT FRAME (Nuevo)
 # ==============================================================================
 
-async def dominant_frame_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+def dominant_frame_score(client: OpenAI, content: str, few_shot_examples: list = None):
+    """
+    Identifica el marco retórico o temático principal (Categórica Nominal).
+    """
+
     prompt = f"""
 You are a media analyst studying framing effects in the Gaza conflict.
 
@@ -202,7 +213,7 @@ Example: {{"dominant_frame": "Security/Military"}}
 {content}
 """
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a media analyst. Output valid JSON only."},
@@ -218,10 +229,14 @@ Example: {{"dominant_frame": "Security/Military"}}
 
 
 # ==============================================================================
-# 5. ARGUMENT QUALITY SCORE - ASYNC
+# 5. ARGUMENT QUALITY SCORE (Nuevo)
 # ==============================================================================
 
-async def argument_quality_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+def argument_quality_score(client: OpenAI, content: str, few_shot_examples: list = None):
+    """
+    Evalúa la calidad y sofisticación del argumento (Ordinal 0-5).
+    """
+
     prompt = f"""
 You are an academic researcher evaluating the quality of public deliberation about Gaza conflict.
 
@@ -250,7 +265,7 @@ Example: {{"argument_quality_score": 3}}
 {content}
 """
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a researcher. Output valid JSON only."},
@@ -265,10 +280,11 @@ Example: {{"argument_quality_score": 3}}
         return json.dumps({"argument_quality_score": None})
 
 # ==============================================================================
-# 5. SENTIMENT SCORE - ASYNC
+# 5. SENTIMENT SCORE
 # ==============================================================================
 
-async def sentiment_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+def sentiment_score(client: OpenAI, content: str, few_shot_examples: list = None):
+
     prompt = f"""
 You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse.
 
@@ -302,8 +318,9 @@ Example: {{"sentiment_score": -0.45}}
 **TEXT TO CLASSIFY:**
 {content}
 """
+
     try:
-        response = await client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a sentiment analysis expert. Output valid JSON only."},
@@ -314,8 +331,8 @@ Example: {{"sentiment_score": -0.45}}
         )
         return response.choices[0].message.content
     except Exception as e:
-        logging.error(f"Error in Sentiment: {e}")
-        return json.dumps({"sentiment_score": None})
+        logging.error(f"Error in Quality: {e}")
+        return json.dumps({"argument_quality_score": None})
     
 # ==============================================================================
 # Helper additional functions
@@ -335,15 +352,23 @@ def export_labeling_samples_to_json(df, file_path, data_columns_to_show, feature
 
 def load_labeled_sample(file_path):
     """Loads labeled JSON asDataFrame and filters nulls in feature_name column."""
+
     if not os.path.exists(file_path):
         logging.error(f"❌ File not found: {file_path}. Run script 03a/04a first.")
         exit()
+
     try:
+        # Read json as dict
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+        
         if not data: return pl.DataFrame([])
+        
+        # Read dict as df
         df = pl.DataFrame(data)
+        
         return df
+    
     except Exception as e:
         logging.error(f"❌ Error loading {file_path}: {e}")
         exit()
@@ -352,18 +377,22 @@ def load_labeled_sample(file_path):
 
 def process_labeled_sample_for_llm(df, feature_name):
     """Converts a labeled DataFrame to formatted list to be ingested in LLMs."""
+
     formatted_list = []
     for row in df.iter_rows(named=True):
         formatted_list.append({
-            "text_content": row['text_content'],
+            "text_content": row['text_content'], # Key used by your utils
             feature_name: row[feature_name]
         })
+
     return formatted_list
 
 #==============================================================================
 
 def adjacent_accuracy(y_true, y_pred, adjacent_tol=1):
     """Calculates adjacent accuracy for ordinal scales."""
+    
+    # Adjacent Tolerance (+/- adjacent_tol)
     y_true_arr = np.array(y_true)
     y_pred_arr = np.array(y_pred)
     diff = np.abs(y_true_arr - y_pred_arr)
@@ -371,17 +400,80 @@ def adjacent_accuracy(y_true, y_pred, adjacent_tol=1):
     return adjacent_acc
 
 #==============================================================================
-# NORMALIZACIÓN
+
+def run_labeling_samples(df, data_columns_to_include, features_to_label, 
+                         sample_n, sample_seed, val_sample_ratio, manual_train_ids, manual_val_ids,
+                         train_sample_path, val_sample_path): 
+
+    logging.info("⚙️ Starting generation of samples (Manual + Random)...")
+
+    # 2. EXTRACT MANUAL SAMPLES
+    # Identify manual rows
+    df_manual_train = df.filter(pl.col('comment_id').is_in(manual_train_ids))
+    df_manual_val = df.filter(pl.col('comment_id').is_in(manual_val_ids))
+    
+    # Check if we found all requested IDs
+    if len(df_manual_train) < len(manual_train_ids):
+        found = df_manual_train['comment_id'].to_list()
+        missing = set(manual_train_ids) - set(found)
+        logging.warning(f"⚠️ Some MANUAL TRAIN IDs were not found in dataset: {missing}")
+
+    if len(df_manual_val) < len(manual_val_ids):
+        found = df_manual_val['comment_id'].to_list()
+        missing = set(manual_val_ids) - set(found)
+        logging.warning(f"⚠️ Some MANUAL VAL IDs were not found in dataset: {missing}")
+
+    logging.info(f"🔧 Manual Samples Extracted -> Train: {len(df_manual_train)} | Val: {len(df_manual_val)}")
+
+    # 3. PREPARE RANDOM POOL (Excluding Manual IDs to avoid duplicates/leakage)
+    all_manual_ids = manual_train_ids + manual_val_ids
+    df_pool = df.filter(~ pl.col('comment_id').is_in(all_manual_ids))
+    
+    # 4. CALCULATE QUOTAS
+    val_n = int(sample_n * val_sample_ratio)
+    train_n = sample_n - val_n   
+    manual_val_n = len(df_manual_val)
+    manual_train_n = len(df_manual_train)
+    
+    # Calculate how many randoms we still need
+    random_train_n = max(0, train_n - manual_train_n)
+    random_val_n = max(0, val_n - manual_val_n)
+    random_total_n = random_train_n + random_val_n
+    logging.info(f"🎲 Random Samples Needed -> Train: {random_train_n} | Val: {random_val_n}")
+
+    # 5. SAMPLE RANDOM DATA
+    try:
+        df_random_selected = df_pool.sample(n=random_total_n, seed=sample_seed, with_replacement=False)
+    except Exception:
+        logging.warning("⚠️ Pool is smaller than requested samples. Taking everything available.")
+        df_random_selected = df_pool
+
+    # Split the random selection into train and val chunks
+    df_random_train = df_random_selected[:random_train_n]
+    df_random_val = df_random_selected[random_train_n:]
+
+    # 6. COMBINE MANUAL + RANDOM
+    df_train_final = pl.concat([df_manual_train, df_random_train])
+    df_val_final = pl.concat([df_manual_val, df_random_val])
+
+    logging.info(f"📊 FINAL SPLIT -> Train (Few-Shot): {len(df_train_final)} | Validation (Blind): {len(df_val_final)}")
+
+    # 7. EXPORT TO JSON
+    export_labeling_samples_to_json(df_train_final, train_sample_path, data_columns_to_include, features_to_label)
+    export_labeling_samples_to_json(df_val_final, val_sample_path, data_columns_to_include, features_to_label)
+
+    logging.info("✅ Process completed. Check 'data/labeled_samples' folder.")
+
 #==============================================================================
+
 def normalize_str_categories(values):
+    # Convierte a string, quita espacios y pone en minúsculas. 
+    # Convierte None a "unknown" para evitar fallos.
     return [str(l).strip().lower() if l is not None else "unknown" for l in values]
 
-#==============================================================================
-# VALIDATION RUNNER (SEQUENTIAL ASYNC)
-#==============================================================================
+def run_validation_for_feature(feature_name, feature_config, df_train, df_val, client, validation_results_dir): 
 
-async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, client: AsyncOpenAI, validation_results_dir): 
-
+      
     if not feature_config:
         logging.error(f"❌ Configuration not found for {feature_name}")
         return
@@ -392,7 +484,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
         logging.error("❌ Error: Missing labeled data. Check 'data/labeled_samples' folder.")
         return
 
-    # 1. Clean nulls
+    # 1. Clean nulls from feature_name column in df_train and df_val 
     df_train = df_train.filter(pl.col(feature_name).is_not_null())
     df_val = df_val.filter(pl.col(feature_name).is_not_null())
 
@@ -401,7 +493,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     # 2. Prepare Few-Shot Examples
     few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
 
-    # 3. Inference (Loop secuencial con await)
+    # 3. Inference
     y_true = []
     y_pred = []
     
@@ -412,15 +504,15 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     validation_results['feature_name'] = str(feature_name)
     validation_results['feature_type'] = str(feature_type)
 
-    logging.info(f"⏳ Running predictions on {len(df_val)} records (Async Sequential)...")
+    logging.info(f"⏳ Running predictions on {len(df_val)} records...")
 
     for i, row in enumerate(df_val.iter_rows(named=True)):
         text_input = row['text_content']
         true_value = row[feature_name]
         
         try:
-            # CALL TO LLM (AWAIT)
-            llm_response = await feature_config['func'](
+            # CALL TO LLM
+            llm_response = feature_config['func'](
                 client=client, 
                 content=text_input, 
                 few_shot_examples=few_shot_examples
@@ -429,16 +521,18 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
             response_json = json.loads(llm_response)
             predicted_value = response_json.get(feature_name)
             
-            # Safety Casting
+            # Safety Casting based on feature_config
             if feature_type == 'ordinal':
                 predicted_value = int(predicted_value) if predicted_value is not None else -1
                 true_value = int(true_value)
             
             elif feature_type == 'continuous':
+                # Float conversion for Sentiment
                 predicted_value = float(predicted_value) if predicted_value is not None else 0.0
                 true_value = float(true_value)
 
             else:
+                # Categorical (String)
                 predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
                 true_value = str(true_value)
 
@@ -456,20 +550,28 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     # 4. Metrics & Reporting
     logging.info(f"📊 METRICS logging: {feature_name}")
     
+    # --- ORDINAL LOGIC ---
     if feature_type == 'ordinal':
+
         validation_results['validation_score_type'] = 'accuracy'
+
         if feature_name != 'content_relevance_score':
-            score_value = adjacent_accuracy(y_true, y_pred) 
-            logging.info(f"   🎯 Adjacent Accuracy:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
+
+            score_value = adjacent_accuracy(y_true, y_pred) # adjacent_tol = 1 by default
+            logging.info(f"   🎯 Adjacent Accuracy:  {score_value:.2%} (Target: >= {validation_threshold:.0%}) (Tolerance +/- 1)")
+
         else:
             cutoff = feature_config['cutoff']
             bin_true = [1 if x >= cutoff else 0 for x in y_true]
             bin_pred = [1 if x >= cutoff else 0 for x in y_pred]
             score_value = accuracy_score(bin_true, bin_pred)
             logging.info(f"   ⚖️ Binary Filter Acc:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
+
         validation_passed = score_value >= validation_threshold
 
+    # --- CATEGORICAL LOGIC ---
     elif feature_type == 'categorical':
+
         validation_results['validation_score_type'] = 'accuracy'
         y_true = normalize_str_categories(y_true)
         y_pred = normalize_str_categories(y_pred)
@@ -477,10 +579,12 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
         logging.info(f"   🎯 Exact Accuracy:     {score_value:.2%} (Target: >= {validation_threshold:.0%})")
         validation_passed = score_value >= validation_threshold
 
+    # --- CONTINUOUS LOGIC (SENTIMENT) ---
     elif feature_type == 'continuous':
+
         validation_results['validation_score_type'] = 'error'
         score_value = mean_absolute_error(y_true, y_pred)
-        logging.info(f"   📉 MAE: {score_value:.4f} (Target: <= {validation_threshold})")        
+        logging.info(f"   📉 Mean Absolute Error (MAE): {score_value:.4f} (Target: <= {validation_threshold})")        
         validation_passed = score_value <= validation_threshold
         
     validation_results['validation_score'] = float(score_value)
@@ -496,45 +600,9 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
         json.dump(validation_results, f, ensure_ascii=False, indent=4)
 
 #==============================================================================
-# GENERATION RUNNER (PARALLEL ASYNC)
-#==============================================================================
 
-async def process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples):
-    """Worker para procesar una fila individual con semáforo"""
-    async with sem:
-        comment_id = row['comment_id']
-        text_input = row['text_content']
-        feature_type = feature_config['type']
-        
-        try:
-            llm_response = await feature_config['func'](
-                client=client, 
-                content=text_input, 
-                few_shot_examples=few_shot_examples
-            )
-            response_json = json.loads(llm_response)
-            predicted_value = response_json.get(feature_name)
-            
-            if feature_type == 'ordinal':
-                predicted_value = int(predicted_value) if predicted_value is not None else -1
-            elif feature_type == 'continuous':
-                predicted_value = float(predicted_value) if predicted_value is not None else 0.0
-            else:
-                predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
-
-        except Exception as e:
-            # logging.warning(f"⚠️ Error in comment {comment_id}: {e}") # Descomentar si se quiere verbose
-            if feature_type == 'ordinal': predicted_value = -1
-            elif feature_type == 'continuous': predicted_value = 0.0
-            else: predicted_value = "ERROR"
-
-        return {
-            "comment_id": comment_id,
-            feature_name: predicted_value
-        }
-
-async def run_generation_for_feature_async(feature_name, feature_file_path, feature_config, df, df_train, 
-                                           batch_save_size, pilot_mode, pilot_size, pilot_seed, client: AsyncOpenAI): 
+def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
+                               batch_save_size, pilot_mode, pilot_size, pilot_seed, client): 
 
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
     logging.info(f"STARTING GENERATION of {feature_name.upper()}")
@@ -542,60 +610,103 @@ async def run_generation_for_feature_async(feature_name, feature_file_path, feat
 
     few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
 
-    # 1. PREPARE DATA
+   # 4. PREPARE DATA (Resume Logic)
+    
+    # A. Check what is already done
     processed_ids = set()
     if os.path.exists(feature_file_path):
         try:
             df_existing = pl.read_parquet(feature_file_path)
             processed_ids = set(df_existing['comment_id'].to_list())
-            logging.info(f"🔄 Resume: Found {len(processed_ids)} processed records.")
-        except Exception:
-            pass
+            logging.info(f"🔄 Resume: Found {len(processed_ids)} records already processed in output file.")
+        except Exception as e:
+            logging.warning(f"⚠️ Output file exists but couldn't be read: {e}")
 
+    # B. Filter out processed records
     df_to_process = df.filter(~ pl.col('comment_id').is_in(processed_ids))
     
+    # C. Apply PILOT LIMIT (The only change in logic)
     if pilot_mode:
         if len(df_to_process) > pilot_size:
+            logging.info(f"✂️ Cutting dataset to {pilot_size} records for Pilot test.")
             df_to_process = df_to_process.sample(n=pilot_size, seed=pilot_seed)
     
-    records = df_to_process.to_dicts() 
-    total_records = len(records)
-    
-    if total_records == 0:
+    n_to_process = len(df_to_process)
+    if n_to_process == 0:
         logging.info("✅ No new records to process. Exiting.")
         return
 
-    logging.info(f"⏳ Processing {total_records} records with AsyncIO...")
+    logging.info(f"⏳ Queue size: {n_to_process} new records to process.")
 
-    # 2. CONCURRENCY CONTROL
-    # Ajusta este número según tu Tier de OpenAI (20-50 es seguro para Tier 1-2)
-    MAX_CONCURRENT_REQUESTS = 40 
-    sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    # 5. PROCESSING LOOP
+    results_buffer = [] 
+    n_processed_records = 0
+    feature_type = feature_config['type']
+    
+    for i, row in enumerate(df_to_process.iter_rows(named=True)):
+        comment_id = row['comment_id']
+        text_input = row['text_content']
+                
+        try:
+            # CALL TO LLM
+            llm_response = feature_config['func'](
+                client=client, 
+                content=text_input, 
+                few_shot_examples=few_shot_examples
+            )
+            
+            response_json = json.loads(llm_response)
+            predicted_value = response_json.get(feature_name)
+            
+            # Safety Casting based on feature_config
+            if feature_type == 'ordinal':
+                # Integer conversion for Ordinal
+                predicted_value = int(predicted_value) if predicted_value is not None else -1
+            
+            elif feature_type == 'continuous':
+                # Float conversion for continuous
+                predicted_value = float(predicted_value) if predicted_value is not None else 0.0
 
-    # 3. BATCH PROCESSING LOOP
-    for i in range(0, total_records, batch_save_size):
-        chunk = records[i : i + batch_save_size]
+            else:
+                # String conversion for Categorical
+                predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
+
+        except Exception as e:
+            logging.warning(f"⚠️ Error in record {i}: {e}")
+            if feature_type == 'ordinal': predicted_value = -1
+            elif feature_type == 'continuous': predicted_value = 0.0
+            else: predicted_value = "ERROR"
         
-        tasks = [
-            process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples)
-            for row in chunk
-        ]
+        # Add result to buffer
+        results_buffer.append({
+            "comment_id": comment_id,
+            feature_name: predicted_value
+        })
         
-        logging.info(f"🚀 Launching batch {i} - {min(i+batch_save_size, total_records)}...")
-        
-        # Ejecutar tareas con barra de progreso
-        results = await tqdm_asyncio.gather(*tasks)
-        
-        # 4. SAVE BATCH
-        if results:
-            df_new_chunk = pl.DataFrame(results)
+        n_processed_records += 1
+
+        # 6. Incremental Saving (Batching)
+        if n_processed_records % batch_save_size == 0 or n_processed_records == n_to_process:
+            logging.info(f"💾 Saving batch... ({n_processed_records}/{n_to_process})")
+            
+            df_new_chunk = pl.DataFrame(results_buffer)
+            
+            # Append Logic
             if os.path.exists(feature_file_path):
                 try:
                     df_current = pl.read_parquet(feature_file_path)
-                    pl.concat([df_current, df_new_chunk]).write_parquet(feature_file_path)
+                    # Vertical concat
+                    df_combined = pl.concat([df_current, df_new_chunk])
+                    df_combined.write_parquet(feature_file_path)
                 except Exception as e:
                     logging.error(f"❌ Error saving batch: {e}")
             else:
+                # Create new file
                 df_new_chunk.write_parquet(feature_file_path)
+            
+            # Clear buffer
+            results_buffer = []
 
-    logging.info("✅ Async Generation Process Completed.")
+    logging.info("✅ Generation Process Completed.")
+
+#==============================================================================
