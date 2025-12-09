@@ -116,8 +116,9 @@ async def main():
             )
         
         else:
-            logging.warning(f'🛑 Validation not passed for {feature_name}. Generation skipped.')
-
+            logging.warning(f'🛑 Validation not passed for {feature_name}. Improve LLM configuration (prompt, temperature, few-shot-learning, etc.).')
+            logging.warning('⏭️ Generation skipped.')
+            
 #################################################################################################
 
 if __name__ == "__main__":
