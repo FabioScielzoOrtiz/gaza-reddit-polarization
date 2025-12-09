@@ -30,11 +30,13 @@ validation_results_dir = os.path.join(project_path, 'data', 'validation_results'
 
 # --- IMPORTS ---
 
-from config.config_03bcd_04bc import (
-    FEATURE_CONFIG
-)
 from config.config_03abc import (
     FEATURES_TO_VALIDATE
+)
+from config.config_03bcd_04bc import (
+    FEATURE_CONFIG,
+    MODEL_NAME,
+    TEMPERATURE
 )
 
 # Import LLM function (utils updated to async)
@@ -83,8 +85,10 @@ async def main():
             feature_config, 
             df_train, 
             df_val, 
+            validation_results_dir,
             client, 
-            validation_results_dir
+            MODEL_NAME,
+            TEMPERATURE
         )
 
 #################################################################################################

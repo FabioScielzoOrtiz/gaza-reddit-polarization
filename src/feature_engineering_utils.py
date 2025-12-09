@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # 1. CONTENT RELEVANCE SCORE (Filtrado) - ASYNC
 # ==============================================================================
 
-async def content_relevance_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+async def content_relevance_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
     """
     Calcula la relevancia temática usando ejemplos Few-Shot dinámicos (Versión Async).
     """
@@ -65,13 +65,13 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini", 
+            model=model_name, 
             messages=[
                 {"role": "system", "content": "You are a helpful classification assistant. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0 
+            temperature=temperature 
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -84,7 +84,7 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
 # 2. POLITICAL STANCE SCORE - ASYNC
 # ==============================================================================
 
-async def political_stance_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
     prompt = f"""
 You are an expert political analyst for a study on the Gaza conflict.
 
@@ -119,13 +119,13 @@ Return a single JSON object. Example: {{"political_stance": 2}}
 """
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a political analyst. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0
+            temperature=temperature
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -138,7 +138,7 @@ Return a single JSON object. Example: {{"political_stance": 2}}
 # 3. DISCOURSE TONE - ASYNC
 # ==============================================================================
 
-async def discourse_tone_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+async def discourse_tone_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
     prompt = f"""
 You are an expert linguist analyzing political discourse on Reddit regarding the Gaza conflict.
 
@@ -168,13 +168,13 @@ Example: {{"discourse_tone": "Sarcastic"}}
 """
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a linguist. Output valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0
+            temperature=temperature
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -187,7 +187,7 @@ Example: {{"discourse_tone": "Sarcastic"}}
 # 4. DOMINANT FRAME - ASYNC
 # ==============================================================================
 
-async def dominant_frame_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+async def dominant_frame_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
     prompt = f"""
 You are a media analyst studying framing effects in the Gaza conflict.
 
@@ -217,13 +217,13 @@ Example: {{"dominant_frame": "Security/Military"}}
 """
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a media analyst. Output valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0
+            temperature=temperature
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -236,7 +236,7 @@ Example: {{"dominant_frame": "Security/Military"}}
 # 5. ARGUMENT QUALITY SCORE - ASYNC
 # ==============================================================================
 
-async def argument_quality_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+async def argument_quality_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
     prompt = f"""
 You are an academic researcher evaluating the quality of public deliberation about Gaza conflict.
 
@@ -266,13 +266,13 @@ Example: {{"argument_quality_score": 3}}
 """
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a researcher. Output valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0
+            temperature=temperature
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -285,7 +285,7 @@ Example: {{"argument_quality_score": 3}}
 # 5. SENTIMENT SCORE - ASYNC
 # ==============================================================================
 
-async def sentiment_score(client: AsyncOpenAI, content: str, few_shot_examples: list = None):
+async def sentiment_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
     prompt = f"""
 You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse.
 
@@ -321,13 +321,13 @@ Example: {{"sentiment_score": -0.45}}
 """
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a sentiment analysis expert. Output valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
-            temperature=0.0
+            temperature=temperature
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -401,7 +401,8 @@ def normalize_str_categories(values):
 # VALIDATION RUNNER (SEQUENTIAL ASYNC)
 #==============================================================================
 
-async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, client: AsyncOpenAI, validation_results_dir): 
+async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, validation_results_dir,
+                                     client, model_name, temperature): 
 
     if not feature_config:
         logging.error(f"❌ Configuration not found for {feature_name}")
@@ -444,7 +445,9 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
             llm_response = await feature_config['func'](
                 client=client, 
                 content=text_input, 
-                few_shot_examples=few_shot_examples
+                few_shot_examples=few_shot_examples, 
+                model_name=model_name,
+                temperature=temperature
             )
             
             response_json = json.loads(llm_response)
@@ -522,7 +525,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
 # GENERATION RUNNER (PARALLEL ASYNC)
 #==============================================================================
 
-async def process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples):
+async def process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples, model_name, temperature):
     """Worker para procesar una fila individual con semáforo"""
     async with sem:
         comment_id = row['comment_id']
@@ -533,7 +536,9 @@ async def process_single_row(sem, row, client, feature_name, feature_config, few
             llm_response = await feature_config['func'](
                 client=client, 
                 content=text_input, 
-                few_shot_examples=few_shot_examples
+                few_shot_examples=few_shot_examples,
+                model_name=model_name,
+                temperature=temperature
             )
             response_json = json.loads(llm_response)
             predicted_value = response_json.get(feature_name)
@@ -559,7 +564,8 @@ async def process_single_row(sem, row, client, feature_name, feature_config, few
 ##############################################################
 
 async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
-                                    batch_save_size, max_concurrent_request, pilot_mode, pilot_size, pilot_seed, client): 
+                                    batch_save_size, max_concurrent_request, pilot_mode, pilot_size, pilot_seed, 
+                                    client, model_name, temperature): 
 
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
     logging.info(f"STARTING GENERATION of {feature_name.upper()}")
@@ -600,7 +606,7 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
         chunk = records[i : i + batch_save_size]
         
         tasks = [
-            process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples)
+            process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples, model_name, temperature)
             for row in chunk
         ]
         
@@ -626,7 +632,7 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
 
 #################################################################################################
 
-async def fetch_embeddings_for_batch(client, texts_batch, model):
+async def fetch_embeddings_for_batch(client, texts_batch, model_name):
     """Obtiene embeddings para un lote de textos en una sola llamada."""
     try:
         # Reemplazar saltos de línea es recomendación oficial de OpenAI para embeddings
@@ -634,7 +640,7 @@ async def fetch_embeddings_for_batch(client, texts_batch, model):
         
         resp = await client.embeddings.create(
             input=clean_texts,
-            model=model
+            model=model_name
         )
         # La respuesta viene ordenada, extraemos los vectores
         return [data.embedding for data in resp.data]
@@ -645,12 +651,12 @@ async def fetch_embeddings_for_batch(client, texts_batch, model):
 
 #################################################################################################
 
-async def process_embeddings_for_batch(sem, batch, client, model):
+async def process_embeddings_for_batch(sem, batch, client, model_name):
    
     async with sem:
         texts_batch = [r['text_content'] for r in batch]
         ids = [r['comment_id'] for r in batch]
-        vectors = await fetch_embeddings_for_batch(client, texts_batch, model)
+        vectors = await fetch_embeddings_for_batch(client, texts_batch, model_name)
         
         batch_results = []
         for cid, vec in zip(ids, vectors):
@@ -660,7 +666,7 @@ async def process_embeddings_for_batch(sem, batch, client, model):
 
 #################################################################################################
 
-async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_concurrent_request, model, client):
+async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_concurrent_request, client, model_name):
 
     # Verificamos si ya existen embeddings crudos guardados para ahorrar dinero
     if os.path.exists(raw_embeddings_path):
@@ -695,7 +701,7 @@ async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_conc
 
         # Ejecutar peticiones
         tasks = [
-            process_embeddings_for_batch(sem=sem, batch=b, client=client, model=model) 
+            process_embeddings_for_batch(sem=sem, batch=b, client=client, model_name=model_name) 
             for b in batches
         ]
         results_nested = await tqdm_asyncio.gather(*tasks)

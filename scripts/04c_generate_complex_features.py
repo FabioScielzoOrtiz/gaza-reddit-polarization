@@ -45,7 +45,9 @@ from config.config_04abc import (
     FEATURES_TO_GENERATE
 )
 from config.config_03bcd_04bc import (
-    FEATURE_CONFIG
+    FEATURE_CONFIG,
+    MODEL_NAME,
+    TEMPERATURE
 )
 
 # Import Utils
@@ -112,13 +114,15 @@ async def main():
                 PILOT_MODE, 
                 PILOT_SIZE, 
                 PILOT_SEED, 
+                MODEL_NAME,
+                TEMPERATURE,
                 client 
             )
         
         else:
-            logging.warning(f'🛑 Validation not passed for {feature_name}. Improve LLM configuration (prompt, temperature, few-shot-learning, etc.).')
+            logging.warning(f'🛑 Validation not passed for {feature_name}. Improve LLM configuration (model, prompt, temperature, few-shot-learning, etc.).')
             logging.warning('⏭️ Generation skipped.')
-            
+
 #################################################################################################
 
 if __name__ == "__main__":
