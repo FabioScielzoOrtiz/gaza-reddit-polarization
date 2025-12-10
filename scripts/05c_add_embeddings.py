@@ -33,14 +33,14 @@ def main():
 
     try:
         df = pl.read_parquet(base_data_path)
-        logging.info(f"📂 Base dataset loaded: {len(df)} records.")
+        logging.info(f"Base dataset loaded: {len(df)} records.")
     except Exception as e:
         logging.error(f"❌ Failed to load base data: {e}")
         exit()
 
     try:
         df_pca_embeddings = pl.read_parquet(pca_embeddings_path)
-        logging.info(f"📂 PCA embeddings dataset loaded: {len(df)} records.")
+        logging.info(f"PCA embeddings dataset loaded: {len(df)} records.")
     except Exception as e:
         logging.error(f"❌ Failed to load PCA embeddings data: {e}")
         exit()

@@ -63,7 +63,6 @@ async def main():
     
     logging.info("🚀 STARTING EMBEDDINGS GENERATION + PCA")
 
-    # 1. CARGAR DATOS
     try:
         df = pl.read_parquet(processed_data_path)
         logging.info(f"📂 Data Loaded: {len(df)} records ready for embedding.")
@@ -71,7 +70,6 @@ async def main():
         logging.error(f"❌ Failed to load data: {e}")
         exit()
 
-    # 2. INICIALIZAR CLIENTE
     try:
         client = AsyncOpenAI()
     except Exception as e:
