@@ -27,7 +27,7 @@ from config.config_01 import (
     MAX_LIMIT, TIME_FILTER
 )
 
-from src.data_extraction_uitls import authenticate_praw, run_extraction 
+from data_extraction_utils import authenticate_praw, run_data_extraction 
 
 #################################################################################################
 
@@ -81,7 +81,7 @@ def main():
     # Run the full extraction process
     logging.info("Starting data extraction...")
     start_time = time.time()
-    post_data_list, comment_data_list = run_extraction(
+    post_data_list, comment_data_list = run_data_extraction(
         reddit, 
         LIST_SUBREDDITS, 
         LIST_QUERIES, 

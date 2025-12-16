@@ -23,56 +23,10 @@ def authenticate_praw(CLIENT_ID, CLIENT_SECRET, USER_AGENT):
     except Exception as e:
         logging.error(f"Authentication failed: {e}")
         return None
-
-# --- HELPER FUNCTION: AUTHOR DATA EXTRACTION ---
-
-'''
-def _get_author_data(author_obj):
-    """
-    Safely extracts author data (ID, name, karma, age) from a PRAW Author object.
-    Handles deleted/suspended accounts by returning default values.
-    """
-    # Default values for deleted/suspended users
-    default_data = {
-        'author_id': '[unavailable]',
-        'author_name': '[deleted]',
-        'author_post_karma': 0,
-        'author_comment_karma': 0,
-        'account_age_days': -1,
-        'author_status': 'Deleted'
-    }
-    
-    if author_obj is None:
-        return default_data
-        
-    try:
-        # Check for suspended accounts
-        if author_obj.is_suspended:
-            default_data['author_name'] = '[suspended]'
-            default_data['author_status'] = 'Suspended'
-            return default_data
-
-        # Calculate account age in days
-        created_utc = author_obj.created_utc
-        account_age_days = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromtimestamp(created_utc, dt.timezone.utc)).days
-
-        return {
-            'author_id': author_obj.id,
-            'author_name': author_obj.name,
-            'author_post_karma': author_obj.link_karma,
-            'author_comment_karma': author_obj.comment_karma,
-            'account_age_days': account_age_days,
-            'author_status': 'Active'
-        }
-    except Exception:
-        # Fallback for unexpected errors or other inaccessible accounts
-        default_data['author_status'] = 'Error'
-        return default_data
-'''
         
 # --- CORE EXTRACTION FUNCTION ---
 
-def run_extraction(reddit, subreddits, queries, sorts, max_limit, time_filter):
+def run_data_extraction(reddit, subreddits, queries, sorts, max_limit, time_filter):
     """
     Runs the full extraction process over all combinations of subreddits, queries, and sorts.
     Always extracts posts AND top-level comments for the Comment-Centric strategy.

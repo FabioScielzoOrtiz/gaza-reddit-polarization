@@ -21,7 +21,7 @@ project_path = os.path.join(script_path, '..')
 sys.path.append(project_path)
 
 # Input: Datos procesados
-raw_embeddings_path = os.path.join(project_path, 'data', 'features', 'raw_embeddings.parquet')
+raw_embeddings_path = os.path.join(project_path, 'data', 'features', 'embeddings.parquet')
 
 # Output Final: Features reducidas con PCA
 pca_embeddings_path = os.path.join(project_path, 'data', 'features', 'embeddings_pca.parquet')

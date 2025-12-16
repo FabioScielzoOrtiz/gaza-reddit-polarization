@@ -27,8 +27,8 @@ sys.path.append(project_path)
 
 # --- IMPORTS ---
 
-from config.config_05a import (    
-    EMBEDDINGS_MODEL,  
+from config.config_03c_04c_05a import (    
+    EMBEDDING_MODEL_NAME,  
     BATCH_SIZE,
     MAX_CONCURRENT_REQUESTS,
     PILOT_MODE, 
@@ -90,7 +90,7 @@ async def main():
         BATCH_SIZE, 
         MAX_CONCURRENT_REQUESTS, 
         client,
-        EMBEDDINGS_MODEL, 
+        EMBEDDING_MODEL_NAME, 
         metadata_file_path, 
         file_lock,
         PILOT_MODE, 

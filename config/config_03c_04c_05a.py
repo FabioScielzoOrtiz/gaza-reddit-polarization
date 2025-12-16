@@ -1,5 +1,9 @@
+LLM_MODEL_NAME = "gpt-4o-mini"
+LLM_TEMPERATURE = 0.0
+EMBEDDING_MODEL_NAME = "text-embedding-3-small" 
 PILOT_MODE = True # Set to True to process only a small sample (e.g., 10 records). Set to False to process the entire dataset.
-PILOT_SIZE = 25
+PILOT_SIZE = 50
 PILOT_SEED = 111
 BATCH_SAVE_SIZE = 1000 # Save progress every N records 
 MAX_CONCURRENT_REQUESTS = 40 #  CONCURRENCY CONTROL: Ajusta este número según tu Tier de OpenAI (20-50 es seguro para Tier 1-2)
+BATCH_SIZE = 250 

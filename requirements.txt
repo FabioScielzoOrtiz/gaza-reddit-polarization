@@ -4,3 +4,5 @@ numpy==2.3.4
 dotenv==0.9.9
 openai==2.8.1
 scikit-learn==1.7.2
+seaborn
+matplotlib

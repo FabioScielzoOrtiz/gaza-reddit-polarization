@@ -34,20 +34,20 @@ os.makedirs(features_dir, exist_ok=True)
 
 # --- IMPORTS ---
 
-from config.config_03c_04c import (    
+from config.config_03c_04c_05a import (    
     PILOT_MODE, 
     PILOT_SIZE, 
     PILOT_SEED,
     BATCH_SAVE_SIZE,
-    MAX_CONCURRENT_REQUESTS
+    MAX_CONCURRENT_REQUESTS,
+    LLM_MODEL_NAME,
+    LLM_TEMPERATURE
 )
 from config.config_03abc import (
     FEATURES_TO_GENERATE
 )
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG,
-    MODEL_NAME,
-    TEMPERATURE
 )
 
 # Import Utils
@@ -115,8 +115,8 @@ async def main():
                 BATCH_SAVE_SIZE, 
                 MAX_CONCURRENT_REQUESTS, 
                 client,
-                MODEL_NAME,
-                TEMPERATURE,
+                LLM_MODEL_NAME,
+                LLM_TEMPERATURE,
                 metadata_file_path, 
                 file_lock,
                 PILOT_MODE, 
