@@ -27,7 +27,6 @@ sys.path.append(project_path)
 processed_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
 train_sample_path = os.path.join(project_path, 'data', 'labeled_samples', '04a_train_sample_relevance.json')
 validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
-
 features_dir = os.path.join(project_path, 'data', 'features')
 os.makedirs(features_dir, exist_ok=True)
 
@@ -39,7 +38,8 @@ from config.config_03c_04c import (
     PILOT_MODE, 
     PILOT_SIZE, 
     PILOT_SEED,
-    BATCH_SAVE_SIZE
+    BATCH_SAVE_SIZE,
+    MAX_CONCURRENT_REQUESTS
 )
 from config.config_04abc import (
     FEATURES_TO_GENERATE
@@ -101,7 +101,9 @@ async def main():
         if validation_results.get('validation_passed', False):
 
             feature_file_path = os.path.join(features_dir, f'{feature_name}.parquet')
+            metadata_file_path = os.path.join(features_dir, f'{feature_name}_metadata.json')
             feature_config = FEATURE_CONFIG.get(feature_name)
+            file_lock = asyncio.Lock()
 
             # Llamada Asíncrona Masiva
             await run_generation_for_feature(
@@ -111,12 +113,15 @@ async def main():
                 df, 
                 df_train, 
                 BATCH_SAVE_SIZE, 
-                PILOT_MODE, 
-                PILOT_SIZE, 
-                PILOT_SEED, 
+                MAX_CONCURRENT_REQUESTS,
+                client,
                 MODEL_NAME,
                 TEMPERATURE,
-                client 
+                metadata_file_path, 
+                file_lock,
+                PILOT_MODE, 
+                PILOT_SIZE, 
+                PILOT_SEED,
             )
         
         else:

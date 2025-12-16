@@ -28,9 +28,12 @@ sys.path.append(project_path)
 # --- IMPORTS ---
 
 from config.config_05a import (    
-    EMBEDDING_MODEL,  
+    EMBEDDINGS_MODEL,  
     BATCH_SIZE,
-    MAX_CONCURRENT_REQUESTS
+    MAX_CONCURRENT_REQUESTS,
+    PILOT_MODE, 
+    PILOT_SIZE, 
+    PILOT_SEED,
 )
 
 from src.feature_engineering_utils import run_embedding_generation
@@ -43,11 +46,14 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.append(project_path)
 
+features_dir = os.path.join(project_path, 'data', 'features')
+metadata_file_path = os.path.join(features_dir, f'embeddings_metadata.json')
+
 # Input: Datos procesados
 processed_data_path = os.path.join(project_path, 'data', 'processed_data', '04d_processed_data.parquet')
 
 # Output Final: Embeddings crudos 
-raw_embeddings_path = os.path.join(project_path, 'data', 'features', 'raw_embeddings.parquet')
+raw_embeddings_path = os.path.join(features_dir, 'embeddings.parquet')
 
 #################################################################################################
 
@@ -76,13 +82,20 @@ async def main():
         logging.error(f"❌ OpenAI Client Error: {e}")
         exit()
 
+    file_lock = asyncio.Lock()
+
     await run_embedding_generation(
         raw_embeddings_path, 
         df, 
         BATCH_SIZE, 
         MAX_CONCURRENT_REQUESTS, 
-        EMBEDDING_MODEL, 
-        client
+        client,
+        EMBEDDINGS_MODEL, 
+        metadata_file_path, 
+        file_lock,
+        PILOT_MODE, 
+        PILOT_SIZE, 
+        PILOT_SEED,
     ) 
 
 if __name__ == "__main__":

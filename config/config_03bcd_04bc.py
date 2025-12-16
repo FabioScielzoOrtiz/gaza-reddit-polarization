@@ -12,6 +12,9 @@ from src.feature_engineering_utils import (content_relevance_score,
                                            argument_quality_score
                                            )
 
+MODEL_NAME = "gpt-4o-mini"
+TEMPERATURE = 0.0
+
 FEATURE_CONFIG = {
     'content_relevance_score': {
         'func': content_relevance_score,
@@ -45,3 +48,4 @@ FEATURE_CONFIG = {
         'validation_threshold': 0.8 # accuracy threshold
     }
 }
+

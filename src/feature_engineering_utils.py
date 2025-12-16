@@ -3,6 +3,7 @@
 # Imports 
 
 import os
+import time
 import json
 import logging
 import asyncio
@@ -25,7 +26,8 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # 1. CONTENT RELEVANCE SCORE (Filtrado) - ASYNC
 # ==============================================================================
 
-async def content_relevance_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
+async def content_relevance_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
+                                  content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
     """
     Calcula la relevancia temática usando ejemplos Few-Shot dinámicos (Versión Async).
     """
@@ -73,7 +75,8 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
             response_format={ "type": "json_object" },
             temperature=temperature 
         )
-        return response.choices[0].message.content
+        text_response = response.choices[0].message.content 
+        return text_response if not return_prompt else text_response, prompt
     except Exception as e:
         logging.error(f"Error in OpenAI API call (Relevance): {e}")
         return json.dumps({"content_relevance_score": None})
@@ -84,7 +87,8 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
 # 2. POLITICAL STANCE SCORE - ASYNC
 # ==============================================================================
 
-async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
+async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
+                                 content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
     prompt = f"""
 You are an expert political analyst for a study on the Gaza conflict.
 
@@ -127,7 +131,8 @@ Return a single JSON object. Example: {{"political_stance": 2}}
             response_format={ "type": "json_object" },
             temperature=temperature
         )
-        return response.choices[0].message.content
+        text_response = response.choices[0].message.content 
+        return text_response if not return_prompt else text_response, prompt
     except Exception as e:
         logging.error(f"Error in OpenAI API call (Stance): {e}")
         return json.dumps({"political_stance": None})
@@ -138,7 +143,8 @@ Return a single JSON object. Example: {{"political_stance": 2}}
 # 3. DISCOURSE TONE - ASYNC
 # ==============================================================================
 
-async def discourse_tone_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
+async def discourse_tone_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
+                               content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
     prompt = f"""
 You are an expert linguist analyzing political discourse on Reddit regarding the Gaza conflict.
 
@@ -176,7 +182,8 @@ Example: {{"discourse_tone": "Sarcastic"}}
             response_format={ "type": "json_object" },
             temperature=temperature
         )
-        return response.choices[0].message.content
+        text_response = response.choices[0].message.content 
+        return text_response if not return_prompt else text_response, prompt
     except Exception as e:
         logging.error(f"Error in Tone: {e}")
         return json.dumps({"discourse_tone": None})
@@ -187,7 +194,8 @@ Example: {{"discourse_tone": "Sarcastic"}}
 # 4. DOMINANT FRAME - ASYNC
 # ==============================================================================
 
-async def dominant_frame_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
+async def dominant_frame_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
+                               content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
     prompt = f"""
 You are a media analyst studying framing effects in the Gaza conflict.
 
@@ -225,7 +233,8 @@ Example: {{"dominant_frame": "Security/Military"}}
             response_format={ "type": "json_object" },
             temperature=temperature
         )
-        return response.choices[0].message.content
+        text_response = response.choices[0].message.content 
+        return text_response if not return_prompt else text_response, prompt
     except Exception as e:
         logging.error(f"Error in Frame: {e}")
         return json.dumps({"dominant_frame": None})
@@ -236,7 +245,8 @@ Example: {{"dominant_frame": "Security/Military"}}
 # 5. ARGUMENT QUALITY SCORE - ASYNC
 # ==============================================================================
 
-async def argument_quality_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
+async def argument_quality_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
+                                 content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
     prompt = f"""
 You are an academic researcher evaluating the quality of public deliberation about Gaza conflict.
 
@@ -274,7 +284,8 @@ Example: {{"argument_quality_score": 3}}
             response_format={ "type": "json_object" },
             temperature=temperature
         )
-        return response.choices[0].message.content
+        text_response = response.choices[0].message.content 
+        return text_response if not return_prompt else text_response, prompt
     except Exception as e:
         logging.error(f"Error in Quality: {e}")
         return json.dumps({"argument_quality_score": None})
@@ -285,7 +296,8 @@ Example: {{"argument_quality_score": 3}}
 # 5. SENTIMENT SCORE - ASYNC
 # ==============================================================================
 
-async def sentiment_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, content: str = None, few_shot_examples: list = None):
+async def sentiment_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
+                          content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
     prompt = f"""
 You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse.
 
@@ -329,7 +341,8 @@ Example: {{"sentiment_score": -0.45}}
             response_format={ "type": "json_object" },
             temperature=temperature
         )
-        return response.choices[0].message.content
+        text_response = response.choices[0].message.content 
+        return text_response if not return_prompt else text_response, prompt
     except Exception as e:
         logging.error(f"Error in Sentiment: {e}")
         return json.dumps({"sentiment_score": None})
@@ -401,8 +414,8 @@ def normalize_str_categories(values):
 # VALIDATION RUNNER (SEQUENTIAL ASYNC)
 #==============================================================================
 
-async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, validation_results_dir,
-                                     client, model_name, temperature): 
+async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, 
+                                     validation_results_dir, client, model_name, temperature): 
 
     if not feature_config:
         logging.error(f"❌ Configuration not found for {feature_name}")
@@ -525,20 +538,26 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
 # GENERATION RUNNER (PARALLEL ASYNC)
 #==============================================================================
 
-async def process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples, model_name, temperature):
+async def process_single_row(sem, row, client, feature_name, feature_config, 
+                             few_shot_examples, model_name, temperature, 
+                             metadata_file_path, file_lock):
     """Worker para procesar una fila individual con semáforo"""
+
     async with sem:
         comment_id = row['comment_id']
         text_input = row['text_content']
         feature_type = feature_config['type']
         
+        start_time = time.perf_counter()
+
         try:
-            llm_response = await feature_config['func'](
+            llm_response, llm_prompt = await feature_config['func'](
                 client=client, 
                 content=text_input, 
                 few_shot_examples=few_shot_examples,
                 model_name=model_name,
-                temperature=temperature
+                temperature=temperature,
+                return_prompt=True
             )
             response_json = json.loads(llm_response)
             predicted_value = response_json.get(feature_name)
@@ -551,21 +570,53 @@ async def process_single_row(sem, row, client, feature_name, feature_config, few
                 predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
 
         except Exception as e:
-            # logging.warning(f"⚠️ Error in comment {comment_id}: {e}") # Descomentar si se quiere verbose
+            logging.warning(f"⚠️ Error in comment {comment_id}: {e}") 
             if feature_type == 'ordinal': predicted_value = -1
             elif feature_type == 'continuous': predicted_value = 0.0
             else: predicted_value = "ERROR"
 
-        return {
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+
+        response = {
             "comment_id": comment_id,
             feature_name: predicted_value
         }
+        
+        current_metadata = {
+            'comment_id': comment_id,
+            'response': llm_response,
+            'time': round(elapsed_time, 4),
+            'input_tokens': len(str(llm_prompt)) // 4,
+            'output_tokens': len(str(llm_response)) // 4,
+            'model_name': model_name,
+            'temperature': temperature,
+            'processing_date': time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        async with file_lock:
+            feature_metadata = {}
+            if os.path.exists(metadata_file_path):
+                try:
+                    with open(metadata_file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        if content:
+                            feature_metadata = json.loads(content)
+                except json.JSONDecodeError:
+                    logging.error(f"Error decoding JSON from {metadata_file_path}, starting fresh.")
+                    feature_metadata = {}
+            feature_metadata[str(comment_id)] = current_metadata
+            with open(metadata_file_path, "w", encoding="utf-8") as f:
+                json.dump(feature_metadata, f, ensure_ascii=False, indent=4)             
+
+        return response
     
 ##############################################################
 
 async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
-                                    batch_save_size, max_concurrent_request, pilot_mode, pilot_size, pilot_seed, 
-                                    client, model_name, temperature): 
+                                    batch_save_size, max_concurrent_request,  
+                                    client, model_name, temperature, metadata_file_path, file_lock,
+                                    pilot_mode=None, pilot_size=None, pilot_seed=None): 
 
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
     logging.info(f"STARTING GENERATION of {feature_name.upper()}")
@@ -606,13 +657,12 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
         chunk = records[i : i + batch_save_size]
         
         tasks = [
-            process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples, model_name, temperature)
+            process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples, model_name, temperature, metadata_file_path, file_lock)
             for row in chunk
         ]
         
         logging.info(f"🚀 Launching batch {i} - {min(i+batch_save_size, total_records)}...")
         
-        # Ejecutar tareas con barra de progreso
         results = await tqdm_asyncio.gather(*tasks)
         
         # 4. SAVE BATCH
@@ -651,39 +701,100 @@ async def fetch_embeddings_for_batch(client, texts_batch, model_name):
 
 #################################################################################################
 
-async def process_embeddings_for_batch(sem, batch, client, model_name):
-   
+async def process_embeddings_for_batch(sem, batch, client, model_name, metadata_file_path, file_lock):
+
+    start_time = time.perf_counter()
+
     async with sem:
         texts_batch = [r['text_content'] for r in batch]
         ids = [r['comment_id'] for r in batch]
         vectors = await fetch_embeddings_for_batch(client, texts_batch, model_name)
+
+    end_time = time.perf_counter()
+    total_elapsed = end_time - start_time
+    
+    batch_results = []
+    batch_metadata_updates = {}  
+    
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    for i, (cid, vec) in enumerate(zip(ids, vectors)):
+        if vec is not None:
+            # Resultado principal
+            batch_results.append({"comment_id": cid, "raw_embedding": vec})
+            
+            text_len = len(texts_batch[i])
+            avg_time = total_elapsed / len(ids) if ids else 0 
+            
+            batch_metadata_updates[str(cid)] = {
+                'comment_id': cid,
+                'time': round(avg_time, 5),
+                'input_tokens': text_len // 4, 
+                'model_name': model_name,
+                'processing_date': timestamp,
+            }  
+
+    if batch_metadata_updates:
+        async with file_lock:
+            feature_metadata = {}
+            
+            # Leer existente
+            if os.path.exists(metadata_file_path):
+                try:
+                    with open(metadata_file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        if content:
+                            feature_metadata = json.loads(content)
+                except json.JSONDecodeError:
+                    logging.warning(f"Error decoding JSON {metadata_file_path}, resetting.")
+                    feature_metadata = {}
+
+            # Actualizar masivamente (Update dict merges keys)
+            feature_metadata.update(batch_metadata_updates)
+
+            # Escribir todo de vuelta
+            with open(metadata_file_path, "w", encoding="utf-8") as f:
+                json.dump(feature_metadata, f, ensure_ascii=False, indent=4)        
+    
         
-        batch_results = []
-        for cid, vec in zip(ids, vectors):
-            if vec is not None:
-                batch_results.append({"comment_id": cid, "raw_embedding": vec})
-        return batch_results
+    return batch_results
 
 #################################################################################################
 
-async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_concurrent_request, client, model_name):
+async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_concurrent_request, 
+                                   client, model_name, metadata_file_path, file_lock,
+                                   pilot_mode=None, pilot_size=None, pilot_seed=None): 
 
-    # Verificamos si ya existen embeddings crudos guardados para ahorrar dinero
+    # 0. SETUP DE MODOS Y LOGS
+    mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
+    logging.info(f"STARTING EMBEDDING GENERATION")
+    logging.info(f"MODE: {mode_msg}")
+
+    # 1. PREPARAR DATOS (RESUME LOGIC)
+    # Verificamos si ya existen embeddings crudos guardados
     if os.path.exists(raw_embeddings_path):
-
-        df_raw = pl.read_parquet(raw_embeddings_path)
-        logging.info(f"🔄 Found existing RAW embeddings file for {len(df_raw)} records. Loading...")
-        
-        # Identificar qué falta
-        existing_ids = set(df_raw['comment_id'].to_list())
-        df_to_process = df.filter(~pl.col('comment_id').is_in(existing_ids))
-
+        try:
+            df_raw = pl.read_parquet(raw_embeddings_path)
+            existing_ids = set(df_raw['comment_id'].to_list())
+            logging.info(f"🔄 Resume: Found {len(existing_ids)} existing embeddings.")
+        except Exception as e:
+            logging.warning(f"⚠️ Could not read existing file: {e}. Starting fresh.")
+            df_raw = pl.DataFrame(schema={'comment_id': pl.Utf8, 'raw_embedding': pl.List(pl.Float64)})
+            existing_ids = set()
     else:
-        
         df_raw = pl.DataFrame(schema={'comment_id': pl.Utf8, 'raw_embedding': pl.List(pl.Float64)})
-        df_to_process = df
+        existing_ids = set()
 
-    # Si hay nuevos datos, procesamos
+    # Identificar qué falta por procesar
+    df_to_process = df.filter(~pl.col('comment_id').is_in(existing_ids))
+
+    # 2. APLICAR LÓGICA PILOT MODE
+    if pilot_mode:
+        if len(df_to_process) > pilot_size:
+            logging.info(f"✂️ Downsampling from {len(df_to_process)} to {pilot_size} for Pilot Mode...")
+            df_to_process = df_to_process.sample(n=pilot_size, seed=pilot_seed)
+
+    # 3. PROCESAMIENTO
     if len(df_to_process) > 0:
         
         logging.info(f"⚡ Generating embeddings for {len(df_to_process)} records...")
@@ -696,34 +807,44 @@ async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_conc
         
         new_results = []
         
-        # CONCURRENCY CONTROL (Embeddings tiene rate limits altos, 50 es seguro)
+        # CONCURRENCY CONTROL
         sem = asyncio.Semaphore(max_concurrent_request)
 
         # Ejecutar peticiones
         tasks = [
-            process_embeddings_for_batch(sem=sem, batch=b, client=client, model_name=model_name) 
+            process_embeddings_for_batch(
+                sem=sem, 
+                batch=b, 
+                client=client, 
+                model_name=model_name,
+                metadata_file_path=metadata_file_path, 
+                file_lock=file_lock
+            ) 
             for b in batches
         ]
+        
+        # Esperar resultados
         results_nested = await tqdm_asyncio.gather(*tasks)
         
-        # Aplanar lista de listas
+        # Aplanar lista de listas (batch -> items)
         for batch_res in results_nested:
             new_results.extend(batch_res)
 
-        # Guardar Raw Embeddings
+        # 4. GUARDADO (MERGE & SAVE)
         if new_results:
-
             df_new = pl.DataFrame(new_results)
             
-            # Unir con lo existente
-            df_raw = pl.concat([df_raw, df_new], how="vertical")
+            # Unir con lo existente (Vertical Concatenation)
+            # Nota: Si el archivo original estaba vacío o no existía, df_raw tiene el esquema correcto.
+            df_final = pl.concat([df_raw, df_new], how="vertical")
             
-            # Guardar en disco (Checkpoint)
-            df_raw.write_parquet(raw_embeddings_path)
-            logging.info(f"💾 Saved raw embeddings checkpoint to: {raw_embeddings_path}")
-   
+            # Guardar en disco
+            df_final.write_parquet(raw_embeddings_path)
+            logging.info(f"💾 Saved {len(df_new)} new embeddings to: {raw_embeddings_path}")
+            logging.info(f"📊 Total records in file: {len(df_final)}")
+    
     else:
-        logging.info("✅ All records already have embeddings.")
+        logging.info("✅ No new records to process (or Pilot limit reached).")
 
 #################################################################################################
 
