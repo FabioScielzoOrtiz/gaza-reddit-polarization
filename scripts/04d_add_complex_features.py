@@ -38,6 +38,7 @@ def main():
         if feature_name != 'content_relevance_score' and extension == '.parquet':
             feature_path = os.path.join(features_dir, filename)
             feature_df = pl.read_parquet(feature_path)
+            feature_df = feature_df[['comment_id', feature_name]]
             df = df.join(feature_df, how='left', on='comment_id')
 
     df.write_parquet(processed_data_path)

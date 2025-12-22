@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 from sklearn.metrics import accuracy_score, mean_absolute_error
 from tqdm.asyncio import tqdm_asyncio 
 from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt  
 
 #################################################################################################
 
@@ -59,7 +60,15 @@ Use the following expert-labeled examples as your calibration standard. You must
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object. Example: {{"content_relevance_score": 4}}
+Return a single JSON object. 
+Keys:
+- "reasoning_content_relevance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "content_relevance_score": The integer score (0-5).
+Example: 
+{{
+  "reasoning_content_relevance_score": "The comment explicitly names 'Israel' and discusses the act of criticizing the state ('calling out'). This makes it directly related to the main actors and political discourse surrounding the conflict.",
+  "content_relevance_score": 5
+}}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -76,7 +85,7 @@ Return a single JSON object. Example: {{"content_relevance_score": 4}}
             temperature=temperature 
         )
         text_response = response.choices[0].message.content 
-        return text_response if not return_prompt else text_response, prompt
+        return text_response if not return_prompt else (text_response, prompt)
     except Exception as e:
         logging.error(f"Error in OpenAI API call (Relevance): {e}")
         return json.dumps({"content_relevance_score": None})
@@ -116,7 +125,15 @@ Learn from these human-labeled examples to calibrate your judgment:
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object. Example: {{"political_stance": 2}}
+Return a single JSON object. 
+Keys:
+- "reasoning_political_stance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "political_stance_score": The integer score (1-5).
+Example: 
+{{
+    "reasoning_political_stance_score": "The comment justifies the creation of Israel through historical conquest rights ('technically their land') and frames the partition as 'generous', while assigning blame for the initial conflict solely to Arabs. This is 'Strongly Pro-Israel'.",
+    "political_stance_score": 5
+}}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -132,7 +149,7 @@ Return a single JSON object. Example: {{"political_stance": 2}}
             temperature=temperature
         )
         text_response = response.choices[0].message.content 
-        return text_response if not return_prompt else text_response, prompt
+        return text_response if not return_prompt else (text_response, prompt)
     except Exception as e:
         logging.error(f"Error in OpenAI API call (Stance): {e}")
         return json.dumps({"political_stance": None})
@@ -166,8 +183,15 @@ Your task is to identify the **Dominant Discourse Tone** of the provided comment
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object with the exact category name.
-Example: {{"discourse_tone": "Sarcastic"}}
+Return a single JSON object. 
+Keys:
+- "reasoning_discourse_tone_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "discourse_tone_score": The exact category name from the list above.
+Example: 
+{{
+    "reasoning_discourse_tone_score": "The user attempts an objective historical explanation, citing empires and wars to justify a position. It avoids overt emotional language.",
+    "discourse_tone_score": "Analytical"
+}}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -183,7 +207,7 @@ Example: {{"discourse_tone": "Sarcastic"}}
             temperature=temperature
         )
         text_response = response.choices[0].message.content 
-        return text_response if not return_prompt else text_response, prompt
+        return text_response if not return_prompt else (text_response, prompt)
     except Exception as e:
         logging.error(f"Error in Tone: {e}")
         return json.dumps({"discourse_tone": None})
@@ -217,8 +241,15 @@ Your task is to identify the **Dominant Frame** used in the text. This is the "l
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object with the exact category name.
-Example: {{"dominant_frame": "Security/Military"}}
+Return a single JSON object. 
+Keys:
+- "reasoning_dominant_frame_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "dominant_frame_score": The exact category name from the list above.
+Example: 
+{{
+    "reasoning_dominant_frame_score": "The entire argument relies on 1948/pre-1948 history (Ottoman Empire, British Mandate) to explain the present legitimacy.",
+    "dominant_frame_score": "Historical/Religious"
+}}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -234,7 +265,7 @@ Example: {{"dominant_frame": "Security/Military"}}
             temperature=temperature
         )
         text_response = response.choices[0].message.content 
-        return text_response if not return_prompt else text_response, prompt
+        return text_response if not return_prompt else (text_response, prompt)
     except Exception as e:
         logging.error(f"Error in Frame: {e}")
         return json.dumps({"dominant_frame": None})
@@ -268,8 +299,15 @@ Your task is to assign an **Argument Quality Score** from **0 to 5** based on th
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object.
-Example: {{"argument_quality_score": 3}}
+Return a single JSON object. 
+Keys:
+- "reasoning_argument_quality_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "argument_quality_score": The integer score (0-5).
+Example: 
+{{
+    "reasoning_argument_quality_score": "A justified opinion that cites specific factors (water, power, borders) as obstacles to peace. Concise but logical.",
+    "argument_quality_score": 3
+}}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -285,7 +323,7 @@ Example: {{"argument_quality_score": 3}}
             temperature=temperature
         )
         text_response = response.choices[0].message.content 
-        return text_response if not return_prompt else text_response, prompt
+        return text_response if not return_prompt else (text_response, prompt)
     except Exception as e:
         logging.error(f"Error in Quality: {e}")
         return json.dumps({"argument_quality_score": None})
@@ -325,9 +363,15 @@ Do NOT confuse "Political Stance" with "Sentiment".
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object.
-Example: {{"sentiment_score": -0.45}}
-
+Return a single JSON object. 
+Keys:
+- "reasoning_sentiment_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "sentiment_score": The integer score (0-5).
+Example: 
+{{
+    "reasoning_sentiment_score": "The language expresses deep pessimism and warning ('razed to the ground', 'breeds terrorism'). The tone is fearful and frustrated, falling into the negative to very negative range.",
+    "sentiment_score": -0.7
+}}
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -342,7 +386,7 @@ Example: {{"sentiment_score": -0.45}}
             temperature=temperature
         )
         text_response = response.choices[0].message.content 
-        return text_response if not return_prompt else text_response, prompt
+        return text_response if not return_prompt else (text_response, prompt)
     except Exception as e:
         logging.error(f"Error in Sentiment: {e}")
         return json.dumps({"sentiment_score": None})
@@ -358,6 +402,7 @@ def export_labeling_samples_to_json(df, file_path, data_columns_to_show, feature
     for row in df.iter_rows(named=True):
         item = {k: row[k] for k in data_columns_to_show if k in row}
         item.update({k: None for k in features_to_label})
+        item.update({f"reasoning_{k}": None for k in features_to_label})
         export_list.append(item)        
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(export_list, f, indent=4, ensure_ascii=False)
@@ -388,7 +433,8 @@ def process_labeled_sample_for_llm(df, feature_name):
     for row in df.iter_rows(named=True):
         formatted_list.append({
             "text_content": row['text_content'],
-            feature_name: row[feature_name]
+            feature_name: row[feature_name],
+            "reasoning": row[f"reasoning_{feature_name}"]
         })
     return formatted_list
 
@@ -411,6 +457,73 @@ def normalize_str_categories(values):
 #################################################################################################
 
 #==============================================================================
+# LABELLING SAMPLES
+#==============================================================================
+
+def run_labeling_samples(df, data_columns_to_include, features_to_label, 
+                         sample_n, sample_seed, val_sample_ratio, manual_train_ids, manual_val_ids,
+                         train_sample_path, val_sample_path): 
+
+    logging.info("⚙️ Starting generation of samples (Manual + Random)...")
+
+    # 2. EXTRACT MANUAL SAMPLES
+    # Identify manual rows
+    df_manual_train = df.filter(pl.col('comment_id').is_in(manual_train_ids))
+    df_manual_val = df.filter(pl.col('comment_id').is_in(manual_val_ids))
+    
+    # Check if we found all requested IDs
+    if len(df_manual_train) < len(manual_train_ids):
+        found = df_manual_train['comment_id'].to_list()
+        missing = set(manual_train_ids) - set(found)
+        logging.warning(f"⚠️ Some MANUAL TRAIN IDs were not found in dataset: {missing}")
+
+    if len(df_manual_val) < len(manual_val_ids):
+        found = df_manual_val['comment_id'].to_list()
+        missing = set(manual_val_ids) - set(found)
+        logging.warning(f"⚠️ Some MANUAL VAL IDs were not found in dataset: {missing}")
+
+    logging.info(f"🔧 Manual Samples Extracted -> Train: {len(df_manual_train)} | Val: {len(df_manual_val)}")
+
+    # 3. PREPARE RANDOM POOL (Excluding Manual IDs to avoid duplicates/leakage)
+    all_manual_ids = manual_train_ids + manual_val_ids
+    df_pool = df.filter(~ pl.col('comment_id').is_in(all_manual_ids))
+    
+    # 4. CALCULATE QUOTAS
+    val_n = int(sample_n * val_sample_ratio)
+    train_n = sample_n - val_n   
+    manual_val_n = len(df_manual_val)
+    manual_train_n = len(df_manual_train)
+    
+    # Calculate how many randoms we still need
+    random_train_n = max(0, train_n - manual_train_n)
+    random_val_n = max(0, val_n - manual_val_n)
+    random_total_n = random_train_n + random_val_n
+    logging.info(f"🎲 Random Samples Needed -> Train: {random_train_n} | Val: {random_val_n}")
+
+    # 5. SAMPLE RANDOM DATA
+    try:
+        df_random_selected = df_pool.sample(n=random_total_n, seed=sample_seed, with_replacement=False)
+    except Exception:
+        logging.warning("⚠️ Pool is smaller than requested samples. Taking everything available.")
+        df_random_selected = df_pool
+
+    # Split the random selection into train and val chunks
+    df_random_train = df_random_selected[:random_train_n]
+    df_random_val = df_random_selected[random_train_n:]
+
+    # 6. COMBINE MANUAL + RANDOM
+    df_train_final = pl.concat([df_manual_train, df_random_train])
+    df_val_final = pl.concat([df_manual_val, df_random_val])
+
+    logging.info(f"📊 FINAL SPLIT -> Train (Few-Shot): {len(df_train_final)} | Validation (Blind): {len(df_val_final)}")
+
+    # 7. EXPORT TO JSON
+    export_labeling_samples_to_json(df_train_final, train_sample_path, data_columns_to_include, features_to_label)
+    export_labeling_samples_to_json(df_val_final, val_sample_path, data_columns_to_include, features_to_label)
+
+    logging.info("✅ Process completed. Check 'data/labeled_samples' folder.")
+
+#==============================================================================
 # VALIDATION RUNNER (SEQUENTIAL ASYNC)
 #==============================================================================
 
@@ -419,6 +532,15 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
 
     if not feature_config:
         logging.error(f"❌ Configuration not found for {feature_name}")
+        return
+    
+    os.makedirs(validation_results_dir, exist_ok=True)
+    validation_results_filename = f"validation_results_{feature_name}.json"
+    validation_results_path = os.path.join(validation_results_dir, validation_results_filename)
+
+    if os.path.exists(validation_results_path):
+        logging.warning(f"⛔ FEATURE {feature_name.upper()} ALREADY VALIDATED")
+        logging.info(f"📁 Results already saved at: {validation_results_path}")
         return
     
     logging.info(f"\n🔵 VALIDATING FEATURE: {feature_name.upper()}")
@@ -446,10 +568,16 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     validation_results = {}
     validation_results['feature_name'] = str(feature_name)
     validation_results['feature_type'] = str(feature_type)
+    validation_results['llm_metadata'] = {
+        'model_name': model_name,
+        'temperature': temperature,
+        'calls': []
+        }
 
     logging.info(f"⏳ Running predictions on {len(df_val)} records (Async Sequential)...")
 
     for i, row in enumerate(df_val.iter_rows(named=True)):
+        comment_id = row['comment_id']
         text_input = row['text_content']
         true_value = row[feature_name]
         
@@ -460,11 +588,18 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
                 content=text_input, 
                 few_shot_examples=few_shot_examples, 
                 model_name=model_name,
-                temperature=temperature
+                temperature=temperature,
+                return_prompt=False
             )
             
             response_json = json.loads(llm_response)
             predicted_value = response_json.get(feature_name)
+            validation_results['llm_metadata']['calls'].append(
+                {
+                    'comment_id': comment_id,
+                    'response': response_json
+                }
+            )
             
             # Safety Casting
             if feature_type == 'ordinal':
@@ -526,9 +661,6 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
 
     logging.info("   ✅ SUCCESS: validation passed.") if validation_passed else logging.info("   🛑 FAILURE: validation not passed.")
    
-    os.makedirs(validation_results_dir, exist_ok=True)
-    validation_results_filename = f"validation_results_{feature_name}.json"
-    validation_results_path = os.path.join(validation_results_dir, validation_results_filename)
     with open(validation_results_path, "w", encoding="utf-8") as f:
         json.dump(validation_results, f, ensure_ascii=False, indent=4)
 
@@ -561,6 +693,7 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
             )
             response_json = json.loads(llm_response)
             predicted_value = response_json.get(feature_name)
+            reasoning = response_json.get(f"reasoning_{feature_name}")
             
             if feature_type == 'ordinal':
                 predicted_value = int(predicted_value) if predicted_value is not None else -1
@@ -580,7 +713,8 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
 
         response = {
             "comment_id": comment_id,
-            feature_name: predicted_value
+            feature_name: predicted_value,
+            f"reasoning_{feature_name}": reasoning
         }
         
         current_metadata = {
@@ -618,8 +752,8 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
                                     client, model_name, temperature, metadata_file_path, file_lock,
                                     pilot_mode=None, pilot_size=None, pilot_seed=None): 
 
+    logging.info(f"▶️ STARTING GENERATION of {feature_name.upper()}")
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
-    logging.info(f"STARTING GENERATION of {feature_name.upper()}")
     logging.info(f"MODE: {mode_msg}")
 
     few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
@@ -848,53 +982,85 @@ async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_conc
 
 #################################################################################################
 
-def run_reduce_embedding_dimension(df_raw_embeddings, n_pca_components, pca_embeddings_path): 
-
-    # ==========================================================================
-    #  REDUCCIÓN DE DIMENSIONALIDAD (PCA)
-    # ==========================================================================
+def run_reduce_embedding_dimension(df_raw_embeddings, pca_embeddings_path): 
 
     # Convertir columna de listas polars a matriz numpy
-    # (Necesitamos todos los datos para ajustar el PCA correctamente)
     embeddings_matrix = np.array(df_raw_embeddings['raw_embedding'].to_list())
-    
-    logging.info(f"📉 Running PCA to reduce {embeddings_matrix.shape[0]} dims -> {n_pca_components} dims...")
-
-    # Obtenemos filas (muestras) y columnas (dimensiones originales)
     n_samples, n_features = embeddings_matrix.shape
-
-    # PCA requiere que n_components sea menor o igual al MÍNIMO de filas o columnas
-    min_shape = min(n_samples, n_features)
-    if n_pca_components > min_shape:
-        logging.error(
-            f"❌ Cannot run PCA with n_pca_components={n_pca_components} since  n_pca_components > min(n_samples, n_features)={min_shape}. "
-        )
-
-    # Ajustar PCA
-    pca = PCA(n_components=n_pca_components)
-    reduced_embeddings_matrix = pca.fit_transform(embeddings_matrix)
     
-    explained_variance = np.sum(pca.explained_variance_ratio_)
-    logging.info(f"📊 PCA Completed. Total Explained Variance: {explained_variance:.2%}")
+    logging.info(f"📉 Analyzing PCA spectrum for {n_samples} samples with {n_features} features...")
 
     # ==========================================================================
-    # GUARDAR RESULTADO FINAL
+    # 1. FASE DE ANÁLISIS VISUAL
     # ==========================================================================
+    
+    # Calculamos un máximo razonable para visualizar (ej: 50 o el total de features)
+    # No hace falta calcular 1000 componentes si solo nos interesa ver dónde se aplana la curva
+    max_components_viz = min(n_samples, n_features, 50) 
+    
+    pca_viz = PCA(n_components=max_components_viz)
+    pca_viz.fit(embeddings_matrix)
+    
+    cumulative_variance = np.cumsum(pca_viz.explained_variance_ratio_)
+
+    # Generar gráfico
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, max_components_viz + 1), cumulative_variance, marker='o', linestyle='--')
+    plt.axhline(y=0.90, color='r', linestyle=':', label='90% Variance')
+    plt.axhline(y=0.95, color='g', linestyle=':', label='95% Variance')
+    
+    plt.title('Explained Variance vs. Number of Components')
+    plt.xlabel('Number of Components')
+    plt.ylabel('Cumulative Explained Variance')
+    plt.legend()
+    plt.grid(True)
+    
+    print("\n" + "="*60)
+    print(f"📊 GRAPH GENERATED. Close the plot window to continue.")
+    print("="*60)
+    
+    #  - Esto mostrará el gráfico y bloqueará el script hasta cerrarlo
+    plt.show() 
+
+    # ==========================================================================
+    # 2. SELECCIÓN DE USUARIO
+    # ==========================================================================
+    
+    while True:
+        try:
+            user_input = input(f"\n👉 Enter the desired number of PCA components (1-{min(n_samples, n_features)}): ")
+            n_pca_components = int(user_input)
+            if 1 <= n_pca_components <= min(n_samples, n_features):
+                break
+            else:
+                print(f"❌ Invalid range. Please enter a number between 1 and {min(n_samples, n_features)}.")
+        except ValueError:
+            print("❌ Invalid input. Please enter an integer.")
+
+    # ==========================================================================
+    # 3. REDUCCIÓN FINAL Y GUARDADO
+    # ==========================================================================
+
+    logging.info(f"📉 Applying Final PCA with n_components={n_pca_components}...")
+    
+    pca_final = PCA(n_components=n_pca_components)
+    reduced_embeddings_matrix = pca_final.fit_transform(embeddings_matrix)
+    
+    final_variance = np.sum(pca_final.explained_variance_ratio_)
+    logging.info(f"📊 PCA Completed. Total Explained Variance: {final_variance:.2%}")
 
     # Crear diccionario para el DataFrame
     pca_data = {
         "comment_id": df_raw_embeddings['comment_id']
     }
     
-    # Añadir columnas dinámicas: embedding_pca_01, embedding_pca_02...
     for i in range(n_pca_components):
-        col_name = f"embedding_pca_{i+1:02d}" # ej: embedding_pca_01
+        col_name = f"embedding_pca_{i+1:02d}"
         pca_data[col_name] = reduced_embeddings_matrix[:, i]
 
     df_embeddings_pca = pl.DataFrame(pca_data)
 
-    # Guardar
     df_embeddings_pca.write_parquet(pca_embeddings_path)
-    logging.info(f"✅ Embeddings dimension reduced.")
+    logging.info(f"✅ Embeddings dimension reduced to {n_pca_components} and saved.")
 
 #################################################################################################

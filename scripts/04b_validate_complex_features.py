@@ -22,8 +22,8 @@ project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
-train_sample_path = os.path.join(labeling_dir, '04a_train_sample_relevance.json')
-val_sample_path = os.path.join(labeling_dir, '04a_val_sample_relevance.json')
+train_sample_path = os.path.join(labeling_dir, '04a_train_sample.json')
+val_sample_path = os.path.join(labeling_dir, '04a_validatION_sample.json')
 validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
 
 #################################################################################################
@@ -35,12 +35,14 @@ from config.config_04abc import (
 )
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG,
-    MODEL_NAME,
-    TEMPERATURE
+)
+from config.config_03bc_04bc_05a import (    
+    LLM_MODEL_NAME,
+    LLM_TEMPERATURE
 )
 
 # Import LLM function (utils updated to async)
-from src.feature_engineering_utils import (
+from utils.feature_engineering_utils import (
     load_labeled_sample,
     run_validation_for_feature 
 )
@@ -58,7 +60,7 @@ async def main():
     
     ###########################################################################
 
-    logging.info("🚀 STARTING MULTI-FEATURE VALIDATION (ASYNC)")
+    logging.info("🚀 STARTING COMPLEX FEATURES VALIDATION")
     
     # Init Async Client
     try:
@@ -87,8 +89,8 @@ async def main():
             df_val, 
             validation_results_dir,
             client, 
-            MODEL_NAME,
-            TEMPERATURE
+            LLM_MODEL_NAME,
+            LLM_TEMPERATURE
         )
 
 #################################################################################################

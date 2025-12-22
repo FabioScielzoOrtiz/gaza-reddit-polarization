@@ -1,8 +1,8 @@
 features_list = [
-    'political_stance', 
+    'political_stance_score', 
     'sentiment_score', 
-    'discourse_tone', 
-    'dominant_frame', 
+    'discourse_tone_score', 
+    'dominant_frame_score', 
     'argument_quality_score'
 ]
 # 04a

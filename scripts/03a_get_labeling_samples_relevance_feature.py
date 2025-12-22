@@ -26,12 +26,12 @@ base_data_path = os.path.join(project_path, 'data', 'processed_data', '02_proces
 # Output: New dedicated folder for manual labeling inputs
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
 train_sample_path = os.path.join(labeling_dir, '03a_train_sample_relevance.json')
-val_sample_path = os.path.join(labeling_dir, '03a_val_sample_relevance.json')
+val_sample_path = os.path.join(labeling_dir, '03a_validation_sample.json')
 os.makedirs(labeling_dir, exist_ok=True)
 
 #################################################################################################
 
-from config.config_03a_04a import (
+from config.config_03a import (
     SAMPLE_N,  
     SAMPLE_SEED, 
     VAL_SAMPLE_RATIO, 
@@ -43,7 +43,7 @@ from config.config_03abc import (
     FEATURES_TO_LABEL
 )
 
-from src.feature_engineering_utils import run_labeling_samples
+from utils.feature_engineering_utils import run_labeling_samples
 
 #################################################################################################
 

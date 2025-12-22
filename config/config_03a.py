@@ -1,6 +1,6 @@
 SAMPLE_N = 10 # 100 # Total target number of samples (Manual + Random)
 SAMPLE_SEED = 123 # Seed for reproducibility
-VAL_SAMPLE_RATIO = 0.85 # Proportion of labeling samples for validation. Remaining for training (few-shot-llm)
+VAL_SAMPLE_RATIO = 0.80 # Proportion of labeling samples for validation. Remaining for training (few-shot-llm)
 # Add specific comment_ids here to FORCE them into the specific set. Useful for including known edge cases (sarcasm, short text) in the prompt.
 MANUAL_TRAIN_IDS = [ 
     # 'msmtwuf', 

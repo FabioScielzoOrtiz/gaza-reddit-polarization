@@ -34,7 +34,7 @@ from config.config_05b import (
     N_PCA_COMPONENTS
 )
 
-from src.feature_engineering_utils import run_reduce_embedding_dimension
+from utils.feature_engineering_utils import run_reduce_embedding_dimension
 
 #################################################################################################
 
@@ -51,7 +51,7 @@ def main():
 
     run_reduce_embedding_dimension(
         df_raw_embeddings, 
-        N_PCA_COMPONENTS, 
+        #N_PCA_COMPONENTS, 
         pca_embeddings_path
     ) 
 

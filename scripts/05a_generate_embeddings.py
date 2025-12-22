@@ -27,7 +27,7 @@ sys.path.append(project_path)
 
 # --- IMPORTS ---
 
-from config.config_03c_04c_05a import (    
+from config.config_03bc_04bc_05a import (    
     EMBEDDING_MODEL_NAME,  
     BATCH_SIZE,
     MAX_CONCURRENT_REQUESTS,
@@ -36,7 +36,7 @@ from config.config_03c_04c_05a import (
     PILOT_SEED,
 )
 
-from src.feature_engineering_utils import run_embedding_generation
+from utils.feature_engineering_utils import run_embedding_generation
 
 #################################################################################################
 
