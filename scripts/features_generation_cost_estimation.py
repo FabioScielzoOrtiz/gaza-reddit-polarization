@@ -220,8 +220,8 @@ def main():
     # 4. Calcular Costes Totales (Simulación)
     try:
         # Grid the simulation
-        n1_list = np.array([10000, 20000, 30000, 40000, 50000, 60000, 70000])
-        fil_prop_list = np.array([0.90, 0.80, 0.70, 0.60])
+        n1_list = list(np.arange(start=100000, stop=900000, step=100000)) + [868210]
+        fil_prop_list = np.array([0.80, 0.70, 0.60, 0.50])
         calculate_total_costs(relative_cost_df, n1_list, fil_prop_list)
     except Exception as e:
          logging.error(f"❌ Failed calculating total costs: {e}")

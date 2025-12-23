@@ -1,16 +1,16 @@
-# data_extraction_uitls.py
-
+import glob
+import re
+import os
+import polars as pl
 import praw
 import prawcore
-import time
 import datetime as dt
 import logging
 import itertools
+import time
 
 # --- AUTHENTICATION ---
-
 def authenticate_praw(CLIENT_ID, CLIENT_SECRET, USER_AGENT):
-    """Initializes the PRAW instance in read-only mode."""
     try:
         reddit = praw.Reddit(
             client_id=CLIENT_ID,
@@ -18,143 +18,171 @@ def authenticate_praw(CLIENT_ID, CLIENT_SECRET, USER_AGENT):
             user_agent=USER_AGENT,
         )
         reddit.user.me() 
-        logging.info("PRAW instance initialized successfully (read-only mode).")
+        logging.info("✅ PRAW initialized successfully.")
         return reddit
     except Exception as e:
-        logging.error(f"Authentication failed: {e}")
+        logging.error(f"❌ Authentication failed: {e}")
         return None
-        
-# --- CORE EXTRACTION FUNCTION ---
 
-def run_data_extraction(reddit, subreddits, queries, sorts, max_limit, time_filter):
+# --- GESTIÓN DE ESTADO Y ARCHIVOS ---
+
+def _load_state_from_folder(folder_path):
     """
-    Runs the full extraction process over all combinations of subreddits, queries, and sorts.
-    Always extracts posts AND top-level comments for the Comment-Centric strategy.
+    Escanea la carpeta caché para ver qué IDs ya tenemos guardados
+    y determinar el número del siguiente lote.
     """
-    post_data_list = []
-    comment_data_list = []
     post_ids_seen = set()
-    comment_ids_seen = set()
-    extraction_time_utc = dt.datetime.now(dt.timezone.utc).isoformat()
+    max_batch_num = 0
     
-    # Generate all combinations of (subreddit, query, sort)
+    if not os.path.exists(folder_path):
+        return post_ids_seen, 1
+
+    logging.info(f"🔄 Scanning cache in: {folder_path}...")
+
+    # Buscamos archivos de posts para sacar los IDs ya procesados
+    post_files = glob.glob(os.path.join(folder_path, "batch_posts_*.parquet"))
+    
+    if post_files:
+        try:
+            # Leemos solo la columna post_id para ir rápido
+            df_temp = pl.read_parquet(post_files, columns=['post_id'])
+            post_ids_seen = set(df_temp['post_id'].to_list())
+        except Exception as e:
+            logging.warning(f"⚠️ Error reading cache files: {e}")
+
+    # Calculamos el siguiente número de batch (batch_posts_1.parquet -> 1)
+    for f in post_files:
+        match = re.search(r'batch_posts_(\d+)\.parquet', f)
+        if match:
+            num = int(match.group(1))
+            if num > max_batch_num:
+                max_batch_num = num
+    
+    next_batch = max_batch_num + 1
+    
+    if post_ids_seen:
+        logging.info(f"⏩ Resuming: Found {len(post_ids_seen)} posts already saved. Starting Batch {next_batch}.")
+    else:
+        logging.info("🆕 No cache found. Starting from scratch.")
+
+    return post_ids_seen, next_batch
+
+def _save_buffers_to_disk(post_buffer, comment_buffer, output_dir, batch_num):
+    """Guarda lo que haya en memoria a disco inmediatamente."""
+    
+    # 1. Guardar Posts
+    if post_buffer:
+        try:
+            df_p = pl.DataFrame(post_buffer)
+            p_path = os.path.join(output_dir, f"batch_posts_{batch_num}.parquet")
+            df_p.write_parquet(p_path)
+            logging.info(f"💾 Saved Batch {batch_num}: {len(df_p)} Posts -> {p_path}")
+        except Exception as e:
+            logging.error(f"❌ Error saving Posts Batch {batch_num}: {e}")
+
+    # 2. Guardar Comentarios (asociados a esos posts)
+    if comment_buffer:
+        try:
+            df_c = pl.DataFrame(comment_buffer)
+            c_path = os.path.join(output_dir, f"batch_comments_{batch_num}.parquet")
+            df_c.write_parquet(c_path)
+            logging.info(f"💾 Saved Batch {batch_num}: {len(df_c)} Comments -> {c_path}")
+        except Exception as e:
+            logging.error(f"❌ Error saving Comments Batch {batch_num}: {e}")
+
+# --- FUNCIÓN PRINCIPAL DE EXTRACCIÓN ---
+
+def run_data_extraction(reddit, subreddits, queries, sorts, max_limit, time_filter, output_dir, batch_size):
+    
+    # 1. Cargar estado previo (si existe) para no repetir
+    post_ids_seen, batch_counter = _load_state_from_folder(output_dir)
+    
+    # Buffers en memoria (se vacían cada vez que guardamos un lote)
+    post_buffer = []
+    comment_buffer = []
+    
+    extraction_time_utc = dt.datetime.now(dt.timezone.utc).isoformat()
     extraction_combinations = list(itertools.product(subreddits, queries, sorts))
-    logging.info(f"Total extraction combinations to run: {len(extraction_combinations)}")
+
+    logging.info(f"🚀 Starting extraction loop. Batch size: {batch_size} posts.")
 
     for subreddit_name, query, sort in extraction_combinations:
-        
-        logging.info(f"Processing r/{subreddit_name} | Query: '{query[:30]}...' | Sort: {sort}")
+        logging.info(f"📂 Processing: r/{subreddit_name} | Q: '{query}' | Sort: {sort}")
 
         try:
-            # 1. Search for posts
             search_results = reddit.subreddit(subreddit_name).search(
-                query,
-                sort=sort,
-                time_filter=time_filter,
-                limit=max_limit
+                query, sort=sort, time_filter=time_filter, limit=max_limit
             )
             
-            # 2. Iterate over posts
             for post in search_results:
-                if post.id in post_ids_seen:
-                    continue # Skip if already processed
-                logging.info(f'⚙️ Extracting data from post {post.id}')
-
-                # 2a. Extract Post Data
-                #author_data = _get_author_data(post.author)
                 
+                # --- A. CHECKPOINT: ¿Ya tenemos este post? ---
+                if post.id in post_ids_seen:
+                    continue # Saltamos y pasamos al siguiente
+                
+                logging.info(f"⚙️ Processing Post: {post.id}")
+
+                # --- B. EXTRAER POST (Memoria) ---
                 post_record = {
-                    # Identifiers
                     'post_id': post.id,
                     'post_subreddit': post.subreddit.display_name,
-                    # Text Content
                     'post_title': post.title,
                     'post_body': post.selftext,
-                    'post_url': post.url,
-                    # Post Metrics
                     'post_score': post.score,
                     'post_upvote_ratio': post.upvote_ratio,
                     'post_num_comments': post.num_comments,
-                    'post_num_crossposts': post.num_crossposts,
-                    'post_total_awards': post.total_awards_received,
-                    'post_is_self': post.is_self,
-                    'post_is_over_18': post.over_18,
-                    'post_is_stickied': post.stickied,
-                    'post_is_locked': post.locked,
-                    'post_subreddit_subscribers': post.subreddit_subscribers,
-                    'post_domain': post.domain,
-                    'post_flair': post.link_flair_text if post.link_flair_text else None,
-                    # Author Data
-                    #'author_id': author_data['author_id'],
-                    #'author_name': author_data['author_name'],
-                    #'author_post_karma': author_data['author_post_karma'],
-                    #'author_comment_karma': author_data['author_comment_karma'],
-                    #'account_age_days': author_data['account_age_days'],
-                    #'author_status': author_data['author_status'],
-                    # Timestamps
                     'post_created_utc': post.created_utc,
-                    'post_created_utc_date': dt.datetime.fromtimestamp(post.created_utc, dt.timezone.utc).isoformat(),
-                    # Traceability Metadata
+                    'post_created_date': dt.datetime.fromtimestamp(post.created_utc, dt.timezone.utc).isoformat(),
+                    'post_url': post.url,
                     'extraction_query': query,
                     'extraction_sort': sort,
                     'extraction_time': extraction_time_utc,
                 }
-                
-                post_data_list.append(post_record)
-                post_ids_seen.add(post.id)
-                logging.info(f'✅ Post {post.id}')
+                post_buffer.append(post_record)
+                post_ids_seen.add(post.id) # Lo marcamos como visto
 
-                # 2b. Extract Top-Level Comments (New universal logic)
+                # --- C. EXTRAER COMENTARIOS DEL POST (Inmediatamente) ---
+                # Esto asegura el flujo "Post -> Comentarios"
                 try:
-                    # Replace 'MoreComments' links to fetch top-level comments only (limit=0)
                     post.comments.replace_more(limit=0)
+                    comments_found = 0
                     
-                    logging.info(f'⚙️ Extracting data from comments of post {post.id}')
                     for comment in post.comments.list():
-                        if comment.id in comment_ids_seen:
-                            continue # Skip if already processed
-
-                        #author_data_comment = _get_author_data(comment.author)
-                        
                         comment_record = {
-                            # Identifiers
                             'comment_id': comment.id,
-                            'post_id': post.id,
-                            # Text Content
+                            'post_id': post.id, # Link clave
                             'comment_body': comment.body,
-                            # Comment Metrics
                             'comment_score': comment.score,
-                            'comment_score_hidden': comment.score_hidden,
-                            # Author Data
-                            #'author_id': author_data_comment['author_id'],
-                            #'author_name': author_data_comment['author_name'],
-                            #'author_post_karma': author_data_comment['author_post_karma'],
-                            #'author_comment_karma': author_data_comment['author_comment_karma'],
-                            #'account_age_days': author_data_comment['account_age_days'],
-                            #'author_status': author_data_comment['author_status'],
-                            # Timestamps
                             'comment_created_utc': comment.created_utc,
-                            'comment_created_utc_date': dt.datetime.fromtimestamp(comment.created_utc, dt.timezone.utc).isoformat(),
+                            'comment_created_date': dt.datetime.fromtimestamp(comment.created_utc, dt.timezone.utc).isoformat(),
                         }
-                        
-                        comment_data_list.append(comment_record)
-                        comment_ids_seen.add(comment.id)
-                        logging.info(f'✅ Comment {comment.id}')
+                        comment_buffer.append(comment_record)
+                        comments_found += 1
+                    
+                    logging.info(f"   ↳ Collected {comments_found} comments for Post {post.id}")
 
                 except Exception as e:
-                    logging.warning(f"❌ Error retrieving comments for post {post.id} in r/{subreddit_name}: {e}")
+                    logging.warning(f"   ⚠️ Error getting comments for {post.id}: {e}")
+
+                # --- D. GUARDADO INCREMENTAL (BATCH) ---
+                # Si hemos acumulado suficientes posts (ej: 20), volcamos a disco.
+                if len(post_buffer) >= batch_size:
+                    logging.info("📥 Batch limit reached. Writing to disk...")
+                    _save_buffers_to_disk(post_buffer, comment_buffer, output_dir, batch_counter)
+                    
+                    # Limpiar buffers y avanzar contador
+                    post_buffer = []
+                    comment_buffer = []
+                    batch_counter += 1
             
-            logging.info(f"-> Unique POSTS: {len(post_ids_seen)} | Unique COMMENTS: {len(comment_ids_seen)}")
-            
-        except prawcore.exceptions.NotFound:
-            logging.error(f"❌ -> ERROR! Subreddit r/{subreddit_name} not found (404). Skipping.")
-        except prawcore.exceptions.Forbidden:
-            logging.error(f"❌ -> ERROR! Subreddit r/{subreddit_name} is private or banned (403). Skipping.")
         except Exception as e:
-            logging.error(f"❌ -> UNEXPECTED ERROR in r/{subreddit_name}: {e}. Skipping.")
-        
-        # Pause to respect API rate limits
-        time.sleep(1.2)
-        
-    logging.info(f"Data extraction completed. Total unique posts: {len(post_ids_seen)}. Total unique comments: {len(comment_ids_seen)}.")
-    return post_data_list, comment_data_list
+            logging.error(f"❌ Error in search loop: {e}")
+            time.sleep(2)
+
+    # --- GUARDADO FINAL ---
+    # Si quedaron datos en el buffer al terminar todo, los guardamos
+    if post_buffer or comment_buffer:
+        logging.info("📥 Saving final residual data...")
+        _save_buffers_to_disk(post_buffer, comment_buffer, output_dir, batch_counter)
+
+    logging.info("✅ Extraction loop finished.")

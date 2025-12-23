@@ -1,131 +1,83 @@
-#################################################################################################
-
-# --- IMPORTS ---
-
 import polars as pl
 import datetime as dt
 from dotenv import load_dotenv
 import os
 import logging
 import sys
-import time
+import glob
+import shutil
 
-#################################################################################################
-
-# --- PATH SETUP ---
-
+# --- CONFIGURACIÓN DE RUTAS ---
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
-#################################################################################################
-
-# --- IMPORTS ---
-
 from config.config_01 import (
     LIST_SUBREDDITS, LIST_QUERIES, LIST_SORTS, 
-    MAX_LIMIT, TIME_FILTER
+    MAX_LIMIT, TIME_FILTER, BATCH_SIZE
 )
+from utils.data_extraction_utils import authenticate_praw, run_data_extraction
 
-from data_extraction_utils import authenticate_praw, run_data_extraction 
-
-#################################################################################################
-
-# --- LOGGING CONFIGURATION ---
-
-# Dynamic data_extraction_id based on the current datetime (YYYYMMDDHHMMSS)
-data_extraction_id = dt.datetime.now().strftime('%Y%m%d%H%M%S') 
-
-# Define logging directories and file path
-logs_dir = os.path.join(project_path, 'logs')
-logs_file_name = f'data_extraction_{data_extraction_id}.log'
-os.makedirs(logs_dir, exist_ok=True) 
-logs_file_path = os.path.join(logs_dir, logs_file_name)
-
-# Configure logging settings
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(logs_file_path, mode='w', encoding='utf-8'),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logging.info(f"Logging configured. Output file: {logs_file_path}")
-
-#################################################################################################
-
-# --- LOAD ENVIRONMENTAL VARIABLES (Reddit API) ---
+# --- LOGGING ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 load_dotenv()
-CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
-USER_AGENT = "ResearchScript v1.0 by /u/Hour_Sell5070" 
-
-#################################################################################################
-
-# --- MAIN EXECUTION ---
+CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
+USER_AGENT = "ResearchScript v2.0 BatchSaver"
 
 def main():
-
-    ###########################################################################
-
-    # Authenticate and exit if failed 
     reddit = authenticate_praw(CLIENT_ID, CLIENT_SECRET, USER_AGENT)
-    if not reddit:
-        logging.error("❌ Authentication failed. Exiting script.")
-        sys.exit(1)
+    if not reddit: sys.exit(1)
 
-    ###########################################################################
-        
-    # Run the full extraction process
-    logging.info("Starting data extraction...")
-    start_time = time.time()
-    post_data_list, comment_data_list = run_data_extraction(
+    # 1. Definir carpetas
+    final_output_dir = os.path.join(project_path, 'data', 'raw_data')
+    os.makedirs(final_output_dir, exist_ok=True)
+    
+    # CARPETA CACHÉ FIJA: Aquí se guardan los trozos temporales.
+    # Si el código falla y vuelves a ejecutar, mirará aquí para continuar.
+    temp_dir = os.path.join(project_path, 'data', 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # 2. Ejecutar extracción (Guardado automático en cache_dir)
+    # batch_size=10 significa que cada 10 posts, guarda un archivo. 
+    # Si se rompe en el post 15, tendrás el archivo del 1 al 10 seguro en disco.
+    run_data_extraction(
         reddit, 
-        LIST_SUBREDDITS, 
-        LIST_QUERIES, 
-        LIST_SORTS,
-        MAX_LIMIT,
-        TIME_FILTER
+        LIST_SUBREDDITS, LIST_QUERIES, LIST_SORTS, 
+        MAX_LIMIT, TIME_FILTER, 
+        output_dir=temp_dir, 
+        batch_size=BATCH_SIZE  
     )
-    end_time = time.time()
-    logging.info(f"✅ Data Extraction completed in {round((end_time - start_time)/60, 2)} minutes.")
 
-    ###########################################################################
+    # 3. Consolidación (Unir todos los trozos)
+    logging.info("🔄 Consolidating batches into final file...")
+    timestamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
 
-    # Convert to Polars DataFrames and Save (RAW Data Only)
-    
-    logging.info("Saving extracted data")
-
-    output_data_dir = os.path.join(project_path, 'data', 'raw_data')
-    os.makedirs(output_data_dir, exist_ok=True)
-    
-    # --- POSTS (RAW) ---
-    if post_data_list:
-        df_posts = pl.DataFrame(post_data_list)
-        output_filename_posts = f"posts_data_raw_{data_extraction_id}.parquet"
-        output_file_path_posts = os.path.join(output_data_dir, output_filename_posts)
-        df_posts.write_parquet(output_file_path_posts)
-        logging.info(f"📁 RAW POSTS data saved successfully to {output_file_path_posts} (Records: {len(df_posts)})")
-    else:
-        logging.warning("❌ No post data was extracted.")
+    try:
+        # Unir Posts
+        post_files = glob.glob(os.path.join(temp_dir, "batch_posts_*.parquet"))
+        if post_files:
+            df_final_posts = pl.read_parquet(post_files)
+            path_posts = os.path.join(final_output_dir, f"posts_raw_{timestamp}.parquet")
+            df_final_posts.write_parquet(path_posts)
+            logging.info(f"✅ Final Posts Saved: {path_posts} (Total: {len(df_final_posts)})")
         
-    # --- COMMENTS (RAW) ---
-    if comment_data_list:
-        df_comments = pl.DataFrame(comment_data_list)
-        output_filename_comments = f"comments_data_raw_{data_extraction_id}.parquet"
-        output_file_path_comments = os.path.join(output_data_dir, output_filename_comments)
-        df_comments.write_parquet(output_file_path_comments)
-        logging.info(f"📁 RAW COMMENTS data saved successfully to {output_file_path_comments} (Records: {len(df_comments)})")
-    else:
-        logging.warning("❌ No comment data was extracted.")
-      
-    logging.info(f"✅ DATA EXTRACTION COMPLETED")
+        # Unir Comentarios
+        comment_files = glob.glob(os.path.join(temp_dir, "batch_comments_*.parquet"))
+        if comment_files:
+            df_final_comments = pl.read_parquet(comment_files)
+            path_comments = os.path.join(final_output_dir, f"comments_raw_{timestamp}.parquet")
+            df_final_comments.write_parquet(path_comments)
+            logging.info(f"✅ Final Comments Saved: {path_comments} (Total: {len(df_final_comments)})")
 
-#################################################################################################
+        # 4. Limpieza archvos temporales si el proceso finalizó correctamente
+        shutil.rmtree(temp_dir)
+        logging.info("🧹 Cache cleared.")
+
+    except Exception as e:
+        logging.error(f"❌ Error merging files: {e}")
+        logging.warning(f"⚠️ Your partial data is still safe in {temp_dir}")
 
 if __name__ == "__main__":
     main()
-
-#################################################################################################

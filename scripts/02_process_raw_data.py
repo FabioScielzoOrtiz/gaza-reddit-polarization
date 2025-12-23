@@ -61,16 +61,17 @@ def main():
    # Unification: INNER JOIN comments with posts on 'post_id' to add context.
    processed_data = comments_raw_data.join(post_raw_data, on='post_id', how='inner')
 
+   removed_empty_labels_list = ["", "[deleted]", "[removed]", "[ Removed by Reddit ]"]
    # Filter 1: Remove rows where comment_body is empty, [deleted], or [removed] (noise).
    processed_data = processed_data.filter(
-      ~pl.col('comment_body').is_in(["", "[deleted]", "[removed]"])
+      ~pl.col('comment_body').is_in(removed_empty_labels_list)
    )
 
    # Filter 2: Remove rows where both post title and body are noise (robustness check).
    processed_data = processed_data.filter(
       ~ (
-      (pl.col('post_title').is_in(["", "[deleted]", "[removed]"])) &
-      (pl.col('post_body').is_in(["", "[deleted]", "[removed]"]))
+      (pl.col('post_title').is_in(removed_empty_labels_list)) &
+      (pl.col('post_body').is_in(removed_empty_labels_list))
       )
    ) 
 

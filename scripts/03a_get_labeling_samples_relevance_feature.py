@@ -25,7 +25,7 @@ base_data_path = os.path.join(project_path, 'data', 'processed_data', '02_proces
 
 # Output: New dedicated folder for manual labeling inputs
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
-train_sample_path = os.path.join(labeling_dir, '03a_train_sample_relevance.json')
+train_sample_path = os.path.join(labeling_dir, '03a_train_sample.json')
 val_sample_path = os.path.join(labeling_dir, '03a_validation_sample.json')
 os.makedirs(labeling_dir, exist_ok=True)
 
