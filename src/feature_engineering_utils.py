@@ -461,7 +461,7 @@ def normalize_str_categories(values):
 #==============================================================================
 
 def run_labeling_samples(df, data_columns_to_include, features_to_label, 
-                         sample_n, sample_seed, val_sample_ratio, manual_train_ids, manual_val_ids,
+                         sample_n, sample_seed, train_n, manual_train_ids, manual_val_ids,
                          train_sample_path, val_sample_path): 
 
     logging.info("⚙️ Starting generation of samples (Manual + Random)...")
@@ -489,8 +489,7 @@ def run_labeling_samples(df, data_columns_to_include, features_to_label,
     df_pool = df.filter(~ pl.col('comment_id').is_in(all_manual_ids))
     
     # 4. CALCULATE QUOTAS
-    val_n = int(sample_n * val_sample_ratio)
-    train_n = sample_n - val_n   
+    val_n = sample_n - train_n   
     manual_val_n = len(df_manual_val)
     manual_train_n = len(df_manual_train)
     
@@ -522,13 +521,209 @@ def run_labeling_samples(df, data_columns_to_include, features_to_label,
     export_labeling_samples_to_json(df_val_final, val_sample_path, data_columns_to_include, features_to_label)
 
     logging.info("✅ Process completed. Check 'data/labeled_samples' folder.")
+#==============================================================================
+# VALIDATION WORKER (ASYNC)
+#==============================================================================
+
+async def validate_single_row(sem, row, client, feature_name, feature_config, 
+                             few_shot_examples, model_name, temperature):
+    """
+    Worker para validar una sola fila con control de concurrencia.
+    Mantiene la misma estructura que el proceso de generación.
+    """
+    async with sem:
+        comment_id = row['comment_id']
+        text_input = row['text_content']
+        true_value = row[feature_name]
+        feature_type = feature_config['type']
+
+        try:
+            # Llamada al LLM
+            llm_response = await feature_config['func'](
+                client=client, 
+                content=text_input, 
+                few_shot_examples=few_shot_examples, 
+                model_name=model_name,
+                temperature=temperature,
+                return_prompt=False
+            )
+            
+            response_json = json.loads(llm_response)
+            predicted_value = response_json.get(feature_name)
+
+            # Safety Casting (consistente con el runner de generación)
+            if feature_type == 'ordinal':
+                predicted_value = int(predicted_value) if predicted_value is not None else -1
+                true_value = int(true_value)
+            elif feature_type == 'continuous':
+                predicted_value = float(predicted_value) if predicted_value is not None else 0.0
+                true_value = float(true_value)
+            else:
+                predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
+                true_value = str(true_value)
+
+            return {
+                'comment_id': comment_id,
+                'true_value': true_value,
+                'predicted_value': predicted_value,
+                'raw_response': llm_response
+            }
+
+        except Exception as e:
+            logging.warning(f"⚠️ Error in record {comment_id}: {e}")
+            fallback_val = -1 if feature_type == 'ordinal' else (0.0 if feature_type == 'continuous' else "ERROR")
+            return {
+                'comment_id': comment_id,
+                'true_value': true_value,
+                'predicted_value': fallback_val,
+                'error': str(e)
+            }
 
 #==============================================================================
-# VALIDATION RUNNER (SEQUENTIAL ASYNC)
+# VALIDATION RUNNER (PARALLEL BATCH ASYNC)
 #==============================================================================
 
 async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, 
-                                     validation_results_dir, client, model_name, temperature): 
+                                     validation_results_dir, client, model_name, temperature,
+                                     n_validation_iterations, global_validation_threshold,
+                                     max_concurrent_request, batch_size): 
+    """
+    Orquestador de validación que imita el comportamiento de generación:
+    Procesa en batches y usa un semáforo para control de concurrencia.
+    """
+    if not feature_config:
+        logging.error(f"❌ Configuration not found for {feature_name}")
+        return
+    
+    os.makedirs(validation_results_dir, exist_ok=True)
+    validation_results_path = os.path.join(validation_results_dir, f"validation_results_{feature_name}.json")
+
+    if os.path.exists(validation_results_path):
+        logging.warning(f"⛔ FEATURE {feature_name.upper()} ALREADY VALIDATED")
+        return
+    
+    logging.info(f"\n🔵 VALIDATING FEATURE: {feature_name.upper()}")
+    
+    if len(df_train) == 0 or len(df_val) == 0:
+        logging.error("❌ Error: Missing labeled data.")
+        return
+
+    # 1. Preparación de datos
+    df_train = df_train.filter(pl.col(feature_name).is_not_null())
+    df_val = df_val.filter(pl.col(feature_name).is_not_null())
+    few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
+    
+    records = df_val.to_dicts()
+    total_records = len(records)
+    feature_type = feature_config['type']
+    validation_threshold = feature_config['validation_threshold']
+
+    validation_results = {
+        'feature_name': str(feature_name),
+        'feature_type': str(feature_type),
+        'individual_validation': {
+            'score_type': None,
+            'validation_threshold': float(validation_threshold), 
+            'score_value': [],
+            'validation_passed': [],
+        },
+        'global_validation': {
+            'validation_threshold': float(global_validation_threshold),
+            'prob_validation_passed': None,
+            'validation_passed': None
+        },
+
+        'comment_ids': df_val['comment_id'].to_list(),
+        'llm_metadata': {'model_name': model_name, 'temperature': temperature, 'iterations_predicted_values': []},
+    }
+
+    # Control de concurrencia (Semáforo compartido entre batches de una misma iteración)
+    sem = asyncio.Semaphore(max_concurrent_request)
+
+    # 2. Bucle de Iteraciones
+    for iter_idx in range(n_validation_iterations): 
+        logging.info(f"⏳ ITERATION {iter_idx}: Processing {total_records} records in batches of {batch_size}...")
+        
+        all_iter_results = []
+
+        # 3. Procesamiento por Batches (Imitando Generación)
+        for i in range(0, total_records, batch_size):
+            chunk = records[i : i + batch_size]
+            
+            tasks = [
+                validate_single_row(sem, row, client, feature_name, feature_config, 
+                                   few_shot_examples, model_name, temperature)
+                for row in chunk
+            ]
+            
+            # Ejecución del batch
+            batch_results = await tqdm_asyncio.gather(*tasks, desc=f"Iter {iter_idx} | Batch {i//batch_size}")
+            all_iter_results.extend(batch_results)
+            
+            '''
+            # Si no es el último batch, esperamos para no quemar los tokens por minuto (TPM)
+            if i + batch_size < total_records:
+                # Calculamos una espera de 8 segundos: 
+                # (42 registros / 5 por batch) * 8s = ~65 segundos totales. 
+                # Esto garantiza que no superamos los 200k tokens en un minuto.
+                cooldown = 8 
+                logging.info(f"☕ Cooldown: Esperando {cooldown}s para liberar TPM...")
+                await asyncio.sleep(cooldown)
+            '''
+
+        # 4. Cálculo de métricas tras completar la iteración
+        y_true = [r['true_value'] for r in all_iter_results]
+        y_pred = [r['predicted_value'] for r in all_iter_results]
+        
+        validation_results['llm_metadata']['iterations_predicted_values'].append(
+            [r['predicted_value'] for r in all_iter_results]
+        )
+
+        if feature_type == 'ordinal':
+            validation_results['individual_validation']['score_type'] = 'accuracy'
+            if feature_name != 'content_relevance_score':
+                score_value = adjacent_accuracy(y_true, y_pred) 
+                logging.info(f"  🎯 Iter {iter_idx} - Adj. Acc: {score_value:.2%}")
+            else:
+                cutoff = feature_config['cutoff']
+                bin_true = [1 if x >= cutoff else 0 for x in y_true]
+                bin_pred = [1 if x >= cutoff else 0 for x in y_pred]
+                score_value = accuracy_score(bin_true, bin_pred)
+                logging.info(f"  ⚖️ Iter {iter_idx} - Binary Acc: {score_value:.2%}")
+            
+            passed = score_value >= validation_threshold
+
+        elif feature_type == 'categorical':
+            validation_results['individual_validation']['score_type'] = 'accuracy'
+            score_value = accuracy_score(normalize_str_categories(y_true), normalize_str_categories(y_pred))
+            logging.info(f"  🎯 Iter {iter_idx} - Accuracy: {score_value:.2%}")
+            passed = score_value >= validation_threshold
+
+        elif feature_type == 'continuous':
+            validation_results['individual_validation']['score_type'] = 'error'
+            score_value = mean_absolute_error(y_true, y_pred)
+            logging.info(f"  📉 Iter {iter_idx} - MAE: {score_value:.4f}")
+            passed = score_value <= validation_threshold
+        
+        validation_results['individual_validation']['score_value'].append(float(score_value))
+        validation_results['individual_validation']['validation_passed'].append(bool(passed))
+
+    # 5. Lógica de Validación Global
+    prob_passed = np.mean(validation_results['individual_validation']['validation_passed'])
+    global_passed = prob_passed >= global_validation_threshold
+    
+    validation_results['global_validation']['prob_validation_passed'] = float(prob_passed)
+    validation_results['global_validation']['validation_passed'] = bool(global_passed)
+
+    logging.info(f"{'✅' if global_passed else '🛑'} FEATURE {feature_name.upper()} VALIDATION {'PASSED' if global_passed else 'FAILED'} ({prob_passed:.0%})")
+   
+    with open(validation_results_path, "w", encoding="utf-8") as f:
+        json.dump(validation_results, f, ensure_ascii=False, indent=4)
+
+'''
+async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, 
+                                     validation_results_dir, client, model_name, temperature,
+                                     n_validation_iterations, global_validation_threshold): 
 
     if not feature_config:
         logging.error(f"❌ Configuration not found for {feature_name}")
@@ -565,104 +760,126 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     feature_type = feature_config['type']
     validation_threshold = feature_config['validation_threshold']
 
-    validation_results = {}
-    validation_results['feature_name'] = str(feature_name)
-    validation_results['feature_type'] = str(feature_type)
-    validation_results['llm_metadata'] = {
-        'model_name': model_name,
-        'temperature': temperature,
-        'calls': []
+    validation_results = {
+        'feature_name': str(feature_name),
+        'feature_type': str(feature_type),
+        'llm_metadata': {
+            'model_name': model_name,
+            'temperature': temperature,
+            'responses': []
+            },
+        
+        'individual_validation': {
+            'score_type': None,
+            'validation_threshold': float(validation_threshold), 
+            'score_value': [],
+            'validation_passed': [],
+        },
+
+        'global_validation': {
+            'validation_threshold': float(global_validation_threshold),
+            'prob_validation_passed': None,
+            'validation_passed': None
         }
+    }
 
-    logging.info(f"⏳ Running predictions on {len(df_val)} records (Async Sequential)...")
+    for iter in range(n_validation_iterations): 
+        logging.info(f"⏳ ITERATION {iter}: Running predictions on {len(df_val)} records (Async Sequential)...")
 
-    for i, row in enumerate(df_val.iter_rows(named=True)):
-        comment_id = row['comment_id']
-        text_input = row['text_content']
-        true_value = row[feature_name]
+        for i, row in enumerate(df_val.iter_rows(named=True)):
+            comment_id = row['comment_id']
+            text_input = row['text_content']
+            true_value = row[feature_name]
+            
+            try:
+                # CALL TO LLM (AWAIT)
+                llm_response = await feature_config['func'](
+                    client=client, 
+                    content=text_input, 
+                    few_shot_examples=few_shot_examples, 
+                    model_name=model_name,
+                    temperature=temperature,
+                    return_prompt=False
+                )
+                
+                response_json = json.loads(llm_response)
+                predicted_value = response_json.get(feature_name)
+                validation_results['llm_metadata']['responses'].append(
+                    {
+                        'comment_id': comment_id,
+                        'predicted_value': predicted_value
+                    }
+                )
+                
+                # Safety Casting
+                if feature_type == 'ordinal':
+                    predicted_value = int(predicted_value) if predicted_value is not None else -1
+                    true_value = int(true_value)
+                
+                elif feature_type == 'continuous':
+                    predicted_value = float(predicted_value) if predicted_value is not None else 0.0
+                    true_value = float(true_value)
+
+                else:
+                    predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
+                    true_value = str(true_value)
+
+            except Exception as e:
+                logging.warning(f"⚠️ Error in record {i}: {e}")
+                if feature_type == 'ordinal': predicted_value = -1
+                elif feature_type == 'continuous': predicted_value = 0.0
+                else: predicted_value = "ERROR"
+
+            y_true.append(true_value)
+            y_pred.append(predicted_value)
+            
+            if (i+1) % 10 == 0: print(f"   Processed {i+1}/{len(df_val)}...")
+
+        # 4. Metrics & Reporting
+        logging.info(f"📊 METRICS logging: {feature_name}")
         
-        try:
-            # CALL TO LLM (AWAIT)
-            llm_response = await feature_config['func'](
-                client=client, 
-                content=text_input, 
-                few_shot_examples=few_shot_examples, 
-                model_name=model_name,
-                temperature=temperature,
-                return_prompt=False
-            )
-            
-            response_json = json.loads(llm_response)
-            predicted_value = response_json.get(feature_name)
-            validation_results['llm_metadata']['calls'].append(
-                {
-                    'comment_id': comment_id,
-                    'response': response_json
-                }
-            )
-            
-            # Safety Casting
-            if feature_type == 'ordinal':
-                predicted_value = int(predicted_value) if predicted_value is not None else -1
-                true_value = int(true_value)
-            
-            elif feature_type == 'continuous':
-                predicted_value = float(predicted_value) if predicted_value is not None else 0.0
-                true_value = float(true_value)
-
+        if feature_type == 'ordinal':
+            validation_results['individual_validation']['score_type'] = 'accuracy'
+            if feature_name != 'content_relevance_score':
+                score_value = adjacent_accuracy(y_true, y_pred) 
+                logging.info(f"   🎯 Adjacent Accuracy:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
             else:
-                predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
-                true_value = str(true_value)
+                cutoff = feature_config['cutoff']
+                bin_true = [1 if x >= cutoff else 0 for x in y_true]
+                bin_pred = [1 if x >= cutoff else 0 for x in y_pred]
+                score_value = accuracy_score(bin_true, bin_pred)
+                logging.info(f"   ⚖️ Binary Filter Acc:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
+            validation_passed = score_value >= validation_threshold
 
-        except Exception as e:
-            logging.warning(f"⚠️ Error in record {i}: {e}")
-            if feature_type == 'ordinal': predicted_value = -1
-            elif feature_type == 'continuous': predicted_value = 0.0
-            else: predicted_value = "ERROR"
+        elif feature_type == 'categorical':
+            validation_results['individual_validation']['score_type'] = 'accuracy'
+            y_true = normalize_str_categories(y_true)
+            y_pred = normalize_str_categories(y_pred)
+            score_value = accuracy_score(y_true, y_pred)
+            logging.info(f"   🎯 Exact Accuracy:     {score_value:.2%} (Target: >= {validation_threshold:.0%})")
+            validation_passed = score_value >= validation_threshold
 
-        y_true.append(true_value)
-        y_pred.append(predicted_value)
+        elif feature_type == 'continuous':
+            validation_results['individual_validation']['score_type'] = 'error'
+            score_value = mean_absolute_error(y_true, y_pred)
+            logging.info(f"   📉 MAE: {score_value:.4f} (Target: <= {validation_threshold})")        
+            validation_passed = score_value <= validation_threshold
         
-        if (i+1) % 10 == 0: print(f"   Processed {i+1}/{len(df_val)}...")
-
-    # 4. Metrics & Reporting
-    logging.info(f"📊 METRICS logging: {feature_name}")
+        validation_results['individual_validation']['score_value'].append(float(score_value))
+        validation_results['individual_validation']['validation_passed'].append(bool(validation_passed))
+     
+    prob_validation_passed = np.mean(validation_results['individual_validation']['validation_passed'])
+    global_validation_passed = prob_validation_passed >= global_validation_threshold
     
-    if feature_type == 'ordinal':
-        validation_results['validation_score_type'] = 'accuracy'
-        if feature_name != 'content_relevance_score':
-            score_value = adjacent_accuracy(y_true, y_pred) 
-            logging.info(f"   🎯 Adjacent Accuracy:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
-        else:
-            cutoff = feature_config['cutoff']
-            bin_true = [1 if x >= cutoff else 0 for x in y_true]
-            bin_pred = [1 if x >= cutoff else 0 for x in y_pred]
-            score_value = accuracy_score(bin_true, bin_pred)
-            logging.info(f"   ⚖️ Binary Filter Acc:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
-        validation_passed = score_value >= validation_threshold
+    validation_results['individual_validation']['prob_validation_passed'] = prob_validation_passed
+    validation_results['individual_validation']['validation_passed'] = global_validation_passed
 
-    elif feature_type == 'categorical':
-        validation_results['validation_score_type'] = 'accuracy'
-        y_true = normalize_str_categories(y_true)
-        y_pred = normalize_str_categories(y_pred)
-        score_value = accuracy_score(y_true, y_pred)
-        logging.info(f"   🎯 Exact Accuracy:     {score_value:.2%} (Target: >= {validation_threshold:.0%})")
-        validation_passed = score_value >= validation_threshold
-
-    elif feature_type == 'continuous':
-        validation_results['validation_score_type'] = 'error'
-        score_value = mean_absolute_error(y_true, y_pred)
-        logging.info(f"   📉 MAE: {score_value:.4f} (Target: <= {validation_threshold})")        
-        validation_passed = score_value <= validation_threshold
-        
-    validation_results['validation_score'] = float(score_value)
-    validation_results['validation_threshold'] = float(validation_threshold)
-    validation_results['validation_passed'] = bool(validation_passed)
-
-    logging.info("   ✅ SUCCESS: validation passed.") if validation_passed else logging.info("   🛑 FAILURE: validation not passed.")
+    logging.info("   ✅ SUCCESS: global validation passed.") if global_validation_passed else logging.info("   🛑 FAILURE: global validation not passed.")
    
     with open(validation_results_path, "w", encoding="utf-8") as f:
         json.dump(validation_results, f, ensure_ascii=False, indent=4)
+
+'''
 
 #################################################################################################
 
@@ -812,7 +1029,6 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
                 df_new_chunk.write_parquet(feature_file_path)
 
     logging.info("✅ Async Generation Process Completed.")
-
 
 #################################################################################################
 

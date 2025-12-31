@@ -51,7 +51,7 @@ from config.config_03bcd_04bc import (
 )
 
 # Import Utils
-from utils.feature_engineering_utils import load_labeled_sample, run_generation_for_feature
+from src.feature_engineering_utils import load_labeled_sample, run_generation_for_feature
 
 #################################################################################################
 

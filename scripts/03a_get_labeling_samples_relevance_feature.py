@@ -34,7 +34,7 @@ os.makedirs(labeling_dir, exist_ok=True)
 from config.config_03a import (
     SAMPLE_N,  
     SAMPLE_SEED, 
-    VAL_SAMPLE_RATIO, 
+    TRAIN_N, 
     MANUAL_TRAIN_IDS, 
     MANUAL_VAL_IDS,
     DATA_COLUMNS_TO_INCLUDE
@@ -43,7 +43,7 @@ from config.config_03abc import (
     FEATURES_TO_LABEL
 )
 
-from utils.feature_engineering_utils import run_labeling_samples
+from src.feature_engineering_utils import run_labeling_samples
 
 #################################################################################################
 
@@ -74,7 +74,7 @@ def main():
         FEATURES_TO_LABEL, 
         SAMPLE_N, 
         SAMPLE_SEED, 
-        VAL_SAMPLE_RATIO, 
+        TRAIN_N, 
         MANUAL_TRAIN_IDS, 
         MANUAL_VAL_IDS,
         train_sample_path, 

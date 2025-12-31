@@ -41,7 +41,7 @@ from config.config_04abc import (
     FEATURES_TO_LABEL
 )
 
-from utils.feature_engineering_utils import run_labeling_samples
+from src.feature_engineering_utils import run_labeling_samples
 
 #################################################################################################
 
