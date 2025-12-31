@@ -98,7 +98,7 @@ async def main():
         with open(validation_results_path, "r", encoding="utf-8") as f:
             validation_results = json.load(f)
 
-        if validation_results.get('validation_passed', False):
+        if validation_results['global_validation'].get('validation_passed', False):
 
             logging.warning(f'✅ Validation passed for {feature_name}.')
 

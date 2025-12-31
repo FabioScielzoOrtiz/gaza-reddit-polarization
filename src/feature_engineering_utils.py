@@ -633,7 +633,6 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
             'validation_passed': None
         },
 
-        'comment_ids': df_val['comment_id'].to_list(),
         'llm_metadata': {'model_name': model_name, 'temperature': temperature, 'iterations_predicted_values': []},
     }
 
@@ -641,6 +640,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     sem = asyncio.Semaphore(max_concurrent_request)
 
     # 2. Bucle de Iteraciones
+    iterations_predicted_values = []
     for iter_idx in range(n_validation_iterations): 
         logging.info(f"⏳ ITERATION {iter_idx}: Processing {total_records} records in batches of {batch_size}...")
         
@@ -675,7 +675,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
         y_true = [r['true_value'] for r in all_iter_results]
         y_pred = [r['predicted_value'] for r in all_iter_results]
         
-        validation_results['llm_metadata']['iterations_predicted_values'].append(
+        iterations_predicted_values.append(
             [r['predicted_value'] for r in all_iter_results]
         )
 
@@ -707,6 +707,13 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
         
         validation_results['individual_validation']['score_value'].append(float(score_value))
         validation_results['individual_validation']['validation_passed'].append(bool(passed))
+
+    
+    comment_ids = df_val['comment_id'].to_list()
+    validation_results['llm_metadata']['iterations_predicted_values'] = {
+        c: [x[c_idx] for x in iterations_predicted_values] 
+        for c_idx, c in enumerate(comment_ids)
+        }
 
     # 5. Lógica de Validación Global
     prob_passed = np.mean(validation_results['individual_validation']['validation_passed'])
