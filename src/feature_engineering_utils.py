@@ -659,17 +659,6 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
             # Ejecución del batch
             batch_results = await tqdm_asyncio.gather(*tasks, desc=f"Iter {iter_idx} | Batch {i//batch_size}")
             all_iter_results.extend(batch_results)
-            
-            '''
-            # Si no es el último batch, esperamos para no quemar los tokens por minuto (TPM)
-            if i + batch_size < total_records:
-                # Calculamos una espera de 8 segundos: 
-                # (42 registros / 5 por batch) * 8s = ~65 segundos totales. 
-                # Esto garantiza que no superamos los 200k tokens en un minuto.
-                cooldown = 8 
-                logging.info(f"☕ Cooldown: Esperando {cooldown}s para liberar TPM...")
-                await asyncio.sleep(cooldown)
-            '''
 
         # 4. Cálculo de métricas tras completar la iteración
         y_true = [r['true_value'] for r in all_iter_results]
