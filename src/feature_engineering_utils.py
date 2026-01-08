@@ -1276,3 +1276,43 @@ def run_reduce_embedding_dimension(df_raw_embeddings, pca_embeddings_path):
     logging.info(f"✅ Embeddings dimension reduced to {n_pca_components} and saved.")
 
 #################################################################################################
+
+def get_data_for_features_validation_analysis(df_val, val_results, feature_name):
+
+    true_values_df = df_val[['comment_id', feature_name]]
+
+    iter_pred_values_dict = val_results['llm_metadata']['iterations_predicted_values']
+    iter_pred_values_df_wide = pl.DataFrame(iter_pred_values_dict)
+    comment_ids = list(iter_pred_values_dict.keys())
+    predicted_values = list(iter_pred_values_dict.values())
+    iter_pred_values_df_long = pl.DataFrame({'comment_id': comment_ids, 'predicted_values': predicted_values})
+
+    true_predicted_values_df = true_values_df.join(
+        iter_pred_values_df_long, on='comment_id', how='inner'
+    ).with_columns(
+        predicted_values_mean = pl.col('predicted_values').list.mean(),
+        predicted_values_std = pl.col('predicted_values').list.std(),
+        predicted_values_q25 = pl.col('predicted_values').list.eval(pl.element().quantile(0.25)).list.first(),
+        predicted_values_q75 = pl.col('predicted_values').list.eval(pl.element().quantile(0.75)).list.first(),
+        predicted_values_range = 5 - 0 # Theoretical range 
+        # predicted_values_range = pl.col('predicted_values').list.max() - pl.col('predicted_values').list.min() # Observed range
+    ).with_columns(
+        predicted_values_cv_std = (pl.col('predicted_values_std') / pl.col('predicted_values_mean').abs()).fill_nan(None),
+        predicted_values_cv_quantiles = ((pl.col('predicted_values_q75') - pl.col('predicted_values_q25')) / (pl.col('predicted_values_q75') + pl.col('predicted_values_q25'))).fill_nan(None),
+        predicted_values_cv_range = (pl.col('predicted_values_std') / pl.col('predicted_values_range')).fill_nan(None)
+    ).sort(
+        by='predicted_values_mean'
+    )
+
+    df_plot = iter_pred_values_df_wide.unpivot(
+        variable_name="comment_id", 
+        value_name="prediction"
+    ).sort(
+        by='prediction'
+    ).join(true_values_df, on='comment_id', how='inner'
+    ).join(true_predicted_values_df[['comment_id', 'predicted_values_mean', 'predicted_values_std']], on='comment_id', how='inner'
+    )
+
+    return true_predicted_values_df, df_plot
+
+#################################################################################################

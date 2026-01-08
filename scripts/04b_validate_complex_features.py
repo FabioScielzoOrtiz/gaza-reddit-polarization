@@ -33,6 +33,7 @@ validation_results_dir = os.path.join(project_path, 'data', 'validation_results'
 from config.config_04abc import (
     FEATURES_TO_VALIDATE
 )
+
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG
 )
