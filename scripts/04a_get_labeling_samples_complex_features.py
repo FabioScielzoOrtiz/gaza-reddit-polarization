@@ -28,13 +28,11 @@ os.makedirs(labeling_dir, exist_ok=True)
 #################################################################################################
 
 from config.config_04a import (
-    SAMPLE_N, # Total target number of samples (Manual + Random) 
-    SAMPLE_SEED, # Seed for reproducibility
-    VAL_SAMPLE_RATIO, # 80% for Blind Validation, 20% for Few-Shot Training
-    # Add specific comment_ids here to FORCE them into the specific set. Useful for including known edge cases (sarcasm, short text) in the prompt.
+    SAMPLE_N,  
+    SAMPLE_SEED, 
+    TRAIN_N, 
     MANUAL_TRAIN_IDS, 
     MANUAL_VAL_IDS,
-    # TODO: add descriptive comment
     DATA_COLUMNS_TO_INCLUDE
 )
 from config.config_04abc import (
@@ -72,7 +70,7 @@ def main():
         FEATURES_TO_LABEL, 
         SAMPLE_N, 
         SAMPLE_SEED, 
-        VAL_SAMPLE_RATIO, 
+        TRAIN_N, 
         MANUAL_TRAIN_IDS, 
         MANUAL_VAL_IDS,
         train_sample_path, 

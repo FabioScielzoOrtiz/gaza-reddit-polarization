@@ -2,7 +2,7 @@
 
 # --- IMPORTS ---
 
-import os, sys, logging
+import os, sys, logging, time
 import asyncio # New
 from openai import AsyncOpenAI # New
 from dotenv import load_dotenv
@@ -34,8 +34,16 @@ from config.config_04abc import (
     FEATURES_TO_VALIDATE
 )
 from config.config_03bcd_04bc import (
-    FEATURE_CONFIG,
+    FEATURE_CONFIG
 )
+
+from config.config_03b_04b import (
+    N_VALIDATION_ITERATIONS, 
+    GLOBAL_VALIDATION_THRESHOLD,
+    MAX_CONCURRENT_REQUESTS,
+    BATCH_SIZE
+)
+
 from config.config_03bc_04bc_05a import (    
     LLM_MODEL_NAME,
     LLM_TEMPERATURE
@@ -90,8 +98,15 @@ async def main():
             validation_results_dir,
             client, 
             LLM_MODEL_NAME,
-            LLM_TEMPERATURE
+            LLM_TEMPERATURE,
+            N_VALIDATION_ITERATIONS,
+            GLOBAL_VALIDATION_THRESHOLD, 
+            MAX_CONCURRENT_REQUESTS,
+            BATCH_SIZE
         )
+
+        print('Sleeping...')
+        time.sleep(5) # para prevenir saturación entre llamadas
 
 #################################################################################################
 

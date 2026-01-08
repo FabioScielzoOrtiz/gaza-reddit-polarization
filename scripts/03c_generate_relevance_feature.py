@@ -128,7 +128,7 @@ async def main():
         
         else:
             logging.warning(f'🛑 Validation not passed for {feature_name}. Improve LLM configuration (model, prompt, temperature, few-shot-learning, etc.).')
-            logging.warning('⏭️ Generation skipped.')
+            logging.warning('⏭️  Generation skipped.')
 
 #################################################################################################
 

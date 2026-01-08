@@ -67,7 +67,7 @@ load_dotenv()
 
 async def main():
     
-    logging.info("🚀 STARTING EMBEDDINGS GENERATION + PCA")
+    logging.info("🚀 STARTING EMBEDDINGS GENERATION")
 
     try:
         df = pl.read_parquet(processed_data_path)

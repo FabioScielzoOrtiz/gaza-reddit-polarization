@@ -98,7 +98,7 @@ async def main():
         with open(validation_results_path, "r", encoding="utf-8") as f:
             validation_results = json.load(f)
 
-        if validation_results.get('validation_passed', False):
+        if validation_results['global_validation'].get('validation_passed', False):
 
             feature_file_path = os.path.join(features_dir, f'{feature_name}.parquet')
             metadata_file_path = os.path.join(features_dir, f'{feature_name}_metadata.json')
@@ -126,7 +126,7 @@ async def main():
         
         else:
             logging.warning(f'🛑 Validation not passed for {feature_name}. Improve LLM configuration (model, prompt, temperature, few-shot-learning, etc.).')
-            logging.warning('⏭️ Generation skipped.')
+            logging.warning('⏭️  Generation skipped.')
 
 #################################################################################################
 
