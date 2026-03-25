@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # --- PATH CONFIGURATION ---
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.insert(0, project_path)
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
 validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
@@ -28,7 +28,7 @@ validation_results_dir = os.path.join(project_path, 'data', 'validation_results'
 
 # --- IMPORTS ---
 
-from utils.feature_engineering_utils import load_labeled_sample
+from src.utils.feature_engineering_utils import load_labeled_sample
 
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG

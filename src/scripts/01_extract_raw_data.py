@@ -9,14 +9,14 @@ import shutil
 
 # --- CONFIGURACIÓN DE RUTAS ---
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.insert(0, project_path)
 
 from config.config_01 import (
     LIST_SUBREDDITS, LIST_QUERIES, LIST_SORTS, 
     MAX_LIMIT, TIME_FILTER, BATCH_SIZE
 )
-from utils.data_extraction_utils import authenticate_praw, run_data_extraction
+from src.utils.data_extraction_utils import authenticate_praw, run_data_extraction
 
 # --- LOGGING ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

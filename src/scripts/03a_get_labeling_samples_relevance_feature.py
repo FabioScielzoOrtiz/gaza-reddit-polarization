@@ -43,7 +43,7 @@ from config.config_03abc import (
     FEATURES_TO_LABEL
 )
 
-from utils.feature_engineering_utils import run_labeling_samples
+from src.utils.feature_engineering_utils import run_labeling_samples
 
 #################################################################################################
 

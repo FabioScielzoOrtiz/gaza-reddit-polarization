@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # --- PATH CONFIGURATION ---
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.append(project_path)
 
 processed_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
@@ -51,7 +51,7 @@ from config.config_03bcd_04bc import (
 )
 
 # Import Utils
-from utils.feature_engineering_utils import load_labeled_sample, run_generation_for_feature
+from src.utils.feature_engineering_utils import load_labeled_sample, run_generation_for_feature
 
 #################################################################################################
 

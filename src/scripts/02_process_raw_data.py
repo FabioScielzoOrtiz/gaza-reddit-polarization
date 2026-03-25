@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # --- PATH SETUP ---
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 raw_data_dir = os.path.join(project_path, 'data', 'raw_data')
 processed_data_dir = os.path.join(project_path, 'data', 'processed_data')
 processed_data_path = os.path.join(processed_data_dir, '02_processed_data.parquet')

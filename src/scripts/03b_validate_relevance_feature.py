@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # --- PATH SETUP ---
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.insert(0, project_path)
 
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
@@ -50,7 +50,7 @@ from config.config_03bc_04bc_05a import (
 )
 
 # Import LLM function (src updated to async)
-from utils.feature_engineering_utils import (
+from src.utils.feature_engineering_utils import (
     load_labeled_sample,
     run_validation_for_feature 
 )

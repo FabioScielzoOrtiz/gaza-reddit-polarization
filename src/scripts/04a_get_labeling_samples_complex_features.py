@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # --- PATH CONFIGURATION ---
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.insert(0, project_path)
 
 # Input: Base processed data (from Step 03d)
@@ -39,7 +39,7 @@ from config.config_04abc import (
     FEATURES_TO_LABEL
 )
 
-from utils.feature_engineering_utils import run_labeling_samples
+from src.utils.feature_engineering_utils import run_labeling_samples
 
 #################################################################################################
 

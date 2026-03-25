@@ -36,14 +36,14 @@ from config.config_03bc_04bc_05a import (
     PILOT_SEED,
 )
 
-from utils.feature_engineering_utils import run_embedding_generation
+from src.utils.feature_engineering_utils import run_embedding_generation
 
 #################################################################################################
 
 # --- PATH CONFIGURATION ---
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.append(project_path)
 
 features_dir = os.path.join(project_path, 'data', 'features')

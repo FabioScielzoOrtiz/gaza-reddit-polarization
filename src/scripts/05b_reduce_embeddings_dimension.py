@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # --- PATH CONFIGURATION ---
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(script_path, '..')
+project_path = os.path.join(script_path, '..', '..')
 sys.path.append(project_path)
 
 # Input: Datos procesados
@@ -34,7 +34,7 @@ from config.config_05b import (
     N_PCA_COMPONENTS
 )
 
-from utils.feature_engineering_utils import run_reduce_embedding_dimension
+from src.utils.feature_engineering_utils import run_reduce_embedding_dimension
 
 #################################################################################################
 

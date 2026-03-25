@@ -39,34 +39,32 @@ You are a content rating specialist for an academic study on public opinion rega
 Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided text.
 
 ---
-**STRICT GUIDELINE:**
-1. **FOCUS:** The score MUST primarily reflect the relevance of the **Comment Body**. Use the Post Title/Body ONLY as context.
-2. **CRITERIA:** Do NOT penalize based on tone, quality, or brevity. Only evaluate topical connection to the Israel-Palestine conflict.
+**STRICT GUIDELINES & EDGE CASES:**
+1. **FOCUS & INHERITED RELEVANCE:** The score MUST primarily reflect the relevance of the **Comment Body**. However, do NOT penalize short comments if they directly answer a highly relevant Post. If the Post is explicitly about the Gaza war (e.g., rebuilding Gaza) and the comment directly replies to it (e.g., "That's half the question"), the comment inherits the relevance and should score a 5.
+2. **US POLITICS & ELECTIONS (Score 0):** Discussions focused on US domestic politics, presidential elections, polling, voting behavior, or political party dynamics MUST be scored 0, even if the Gaza conflict is mentioned as a wedge issue or campaign topic (e.g., arms embargo impact on US voters). 
+3. **INTERNAL STATE/MILITARY AFFAIRS (Score 0):** Internal Israeli or US administrative news (e.g., IDF banning certain smartphone brands, internal tech policies) that do not discuss the actual war, combat, or Palestinians MUST be scored 0.
+4. **MEDIA DRAMA & POP CULTURE (Score 1):** Discussions focusing on how celebrities, actors, streamers, or pop culture entities react to the conflict belong in category 1 (Tangents & Opinion Trends).
 
 ---
 **TOPICAL RELEVANCE SCALE (0-5):**
-* **5 - Directly Related:** Explicit mention of the conflict, main actors (Israel, Hamas, IDF, Gaza), or core events.
-* **4 - Clearly Related:** Brief mentions, strong reactions, or aggressive statements unambiguously about the conflict.
-* **3 - Marginal Context:** Related keywords (Middle East, UN, War) without explicit ties to Gaza/Israel. Broad context.
-* **2 - Accidental/Trivial:** Keywords used in non-political context (e.g., travel advice) or pure noise in a related thread.
-* **1 - Off-Topic Noise:** Personal attacks or emotional outbursts unrelated to the topic.
-* **0 - Discard/Spam:** Completely unrelated content.
 
----
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
-Use the following expert-labeled examples as your calibration standard. You must align your scoring logic with these cases:
-
-{few_shot_examples}
+* **5 - Directly Related (Core Conflict):** Explicit discussion of the immediate Gaza conflict, main actors in this specific war (Hamas, IDF in Gaza), strategies, rebuilding efforts, or root causes directly related to the territory. *Includes short comments that directly engage with a level 5 Post.*
+* **4 - Clearly Related (Meta-Debates & Values):** Strong topical ties, but focused on broader debates implicitly linked to the conflict. Examples: philosophical debates on genocide accusations, hostage exchange mechanisms, or overarching discussions about Israeli/Jewish values vs. terrorism.
+* **3 - Marginal / Regional Context:** Mentions Israel, terrorism, or the Middle East, but focuses on different regional fronts (e.g., Syria, Egypt, Jordan) or general peace-making without explicitly tying it back to the ongoing Gaza war.
+* **2 - Accidental/Trivial:** Keywords used in non-political context (e.g., travel advice) or pure noise in a vaguely related thread.
+* **1 - Tangents, Media & Opinion Trends:** Mentions relevant keywords but focuses on pop-culture drama (influencers/actors commenting on the war), media manipulation control (Al Jazeera vs Western media), global energy policies (oil), or antisemitism in contexts outside the Middle East.
+* **0 - Discard/Spam/US Politics:** Completely unrelated content. *Strictly includes: US elections, domestic US polling, US partisan politics, European historical contexts (WWII), or internal military administrative rules (like IDF phone bans).*
 
 ---
 **OUTPUT FORMAT:**
 Return a single JSON object. 
 Keys:
-- "reasoning_content_relevance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "reasoning_content_relevance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria, mimicking the expert's reasoning style.
 - "content_relevance_score": The integer score (0-5).
+
 Example: 
 {{
-  "reasoning_content_relevance_score": "The comment explicitly names 'Israel' and discusses the act of criticizing the state ('calling out'). This makes it directly related to the main actors and political discourse surrounding the conflict.",
+  "reasoning_content_relevance_score": "The comments answers a question about rebuilding Gaza after the war.",
   "content_relevance_score": 5
 }}
 
@@ -643,6 +641,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     iterations_predicted_values = []
     for iter_idx in range(n_validation_iterations): 
         logging.info(f"⏳ ITERATION {iter_idx}: Processing {total_records} records in batches of {batch_size}...")
+        time.sleep(3)
         
         all_iter_results = []
 
@@ -715,167 +714,6 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
    
     with open(validation_results_path, "w", encoding="utf-8") as f:
         json.dump(validation_results, f, ensure_ascii=False, indent=4)
-
-'''
-async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, 
-                                     validation_results_dir, client, model_name, temperature,
-                                     n_validation_iterations, global_validation_threshold): 
-
-    if not feature_config:
-        logging.error(f"❌ Configuration not found for {feature_name}")
-        return
-    
-    os.makedirs(validation_results_dir, exist_ok=True)
-    validation_results_filename = f"validation_results_{feature_name}.json"
-    validation_results_path = os.path.join(validation_results_dir, validation_results_filename)
-
-    if os.path.exists(validation_results_path):
-        logging.warning(f"⛔ FEATURE {feature_name.upper()} ALREADY VALIDATED")
-        logging.info(f"📁 Results already saved at: {validation_results_path}")
-        return
-    
-    logging.info(f"\n🔵 VALIDATING FEATURE: {feature_name.upper()}")
-    
-    if len(df_train) == 0 or len(df_val) == 0:
-        logging.error("❌ Error: Missing labeled data. Check 'data/labeled_samples' folder.")
-        return
-
-    # 1. Clean nulls
-    df_train = df_train.filter(pl.col(feature_name).is_not_null())
-    df_val = df_val.filter(pl.col(feature_name).is_not_null())
-
-    logging.info(f"📂 Data Loaded -> Train (Few-Shot): {len(df_train)} | Val (Test): {len(df_val)}")
-
-    # 2. Prepare Few-Shot Examples
-    few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
-
-    # 3. Inference (Loop secuencial con await)
-    y_true = []
-    y_pred = []
-    
-    feature_type = feature_config['type']
-    validation_threshold = feature_config['validation_threshold']
-
-    validation_results = {
-        'feature_name': str(feature_name),
-        'feature_type': str(feature_type),
-        'llm_metadata': {
-            'model_name': model_name,
-            'temperature': temperature,
-            'responses': []
-            },
-        
-        'individual_validation': {
-            'score_type': None,
-            'validation_threshold': float(validation_threshold), 
-            'score_value': [],
-            'validation_passed': [],
-        },
-
-        'global_validation': {
-            'validation_threshold': float(global_validation_threshold),
-            'prob_validation_passed': None,
-            'validation_passed': None
-        }
-    }
-
-    for iter in range(n_validation_iterations): 
-        logging.info(f"⏳ ITERATION {iter}: Running predictions on {len(df_val)} records (Async Sequential)...")
-
-        for i, row in enumerate(df_val.iter_rows(named=True)):
-            comment_id = row['comment_id']
-            text_input = row['text_content']
-            true_value = row[feature_name]
-            
-            try:
-                # CALL TO LLM (AWAIT)
-                llm_response = await feature_config['func'](
-                    client=client, 
-                    content=text_input, 
-                    few_shot_examples=few_shot_examples, 
-                    model_name=model_name,
-                    temperature=temperature,
-                    return_prompt=False
-                )
-                
-                response_json = json.loads(llm_response)
-                predicted_value = response_json.get(feature_name)
-                validation_results['llm_metadata']['responses'].append(
-                    {
-                        'comment_id': comment_id,
-                        'predicted_value': predicted_value
-                    }
-                )
-                
-                # Safety Casting
-                if feature_type == 'ordinal':
-                    predicted_value = int(predicted_value) if predicted_value is not None else -1
-                    true_value = int(true_value)
-                
-                elif feature_type == 'continuous':
-                    predicted_value = float(predicted_value) if predicted_value is not None else 0.0
-                    true_value = float(true_value)
-
-                else:
-                    predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
-                    true_value = str(true_value)
-
-            except Exception as e:
-                logging.warning(f"⚠️ Error in record {i}: {e}")
-                if feature_type == 'ordinal': predicted_value = -1
-                elif feature_type == 'continuous': predicted_value = 0.0
-                else: predicted_value = "ERROR"
-
-            y_true.append(true_value)
-            y_pred.append(predicted_value)
-            
-            if (i+1) % 10 == 0: print(f"   Processed {i+1}/{len(df_val)}...")
-
-        # 4. Metrics & Reporting
-        logging.info(f"📊 METRICS logging: {feature_name}")
-        
-        if feature_type == 'ordinal':
-            validation_results['individual_validation']['score_type'] = 'accuracy'
-            if feature_name != 'content_relevance_score':
-                score_value = adjacent_accuracy(y_true, y_pred) 
-                logging.info(f"   🎯 Adjacent Accuracy:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
-            else:
-                cutoff = feature_config['cutoff']
-                bin_true = [1 if x >= cutoff else 0 for x in y_true]
-                bin_pred = [1 if x >= cutoff else 0 for x in y_pred]
-                score_value = accuracy_score(bin_true, bin_pred)
-                logging.info(f"   ⚖️ Binary Filter Acc:  {score_value:.2%} (Target: >= {validation_threshold:.0%})")
-            validation_passed = score_value >= validation_threshold
-
-        elif feature_type == 'categorical':
-            validation_results['individual_validation']['score_type'] = 'accuracy'
-            y_true = normalize_str_categories(y_true)
-            y_pred = normalize_str_categories(y_pred)
-            score_value = accuracy_score(y_true, y_pred)
-            logging.info(f"   🎯 Exact Accuracy:     {score_value:.2%} (Target: >= {validation_threshold:.0%})")
-            validation_passed = score_value >= validation_threshold
-
-        elif feature_type == 'continuous':
-            validation_results['individual_validation']['score_type'] = 'error'
-            score_value = mean_absolute_error(y_true, y_pred)
-            logging.info(f"   📉 MAE: {score_value:.4f} (Target: <= {validation_threshold})")        
-            validation_passed = score_value <= validation_threshold
-        
-        validation_results['individual_validation']['score_value'].append(float(score_value))
-        validation_results['individual_validation']['validation_passed'].append(bool(validation_passed))
-     
-    prob_validation_passed = np.mean(validation_results['individual_validation']['validation_passed'])
-    global_validation_passed = prob_validation_passed >= global_validation_threshold
-    
-    validation_results['individual_validation']['prob_validation_passed'] = prob_validation_passed
-    validation_results['individual_validation']['validation_passed'] = global_validation_passed
-
-    logging.info("   ✅ SUCCESS: global validation passed.") if global_validation_passed else logging.info("   🛑 FAILURE: global validation not passed.")
-   
-    with open(validation_results_path, "w", encoding="utf-8") as f:
-        json.dump(validation_results, f, ensure_ascii=False, indent=4)
-
-'''
 
 #################################################################################################
 
