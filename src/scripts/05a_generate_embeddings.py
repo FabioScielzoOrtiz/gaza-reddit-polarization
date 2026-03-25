@@ -36,7 +36,7 @@ from config.config_03bc_04bc_05a import (
     PILOT_SEED,
 )
 
-from src.feature_engineering_utils import run_embedding_generation
+from utils.feature_engineering_utils import run_embedding_generation
 
 #################################################################################################
 

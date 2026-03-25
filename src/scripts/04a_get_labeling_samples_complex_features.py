@@ -1,37 +1,33 @@
 #################################################################################################
 
-# --- IMPORTS ---
-
 import os, sys
 import logging 
 import polars as pl
 
 #################################################################################################
 
-# --- LOGGING CONFIGURATION ---
-
-# Set up basic configuration to log INFO level messages.
+# --- LOGGING SETUP ---
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 #################################################################################################
 
-# --- PATH SETUP ---
+# --- PATH CONFIGURATION ---
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
-# Input: Base processed data (from Step 02)
-base_data_path = os.path.join(project_path, 'data', 'processed_data', '02_processed_data.parquet')
+# Input: Base processed data (from Step 03d)
+base_data_path = os.path.join(project_path, 'data', 'processed_data', '03d_processed_data.parquet')
 
 # Output: New dedicated folder for manual labeling inputs
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
-train_sample_path = os.path.join(labeling_dir, '03a_train_sample.json')
-val_sample_path = os.path.join(labeling_dir, '03a_validation_sample.json')
+train_sample_path = os.path.join(labeling_dir, '04a_train_sample.json')
+val_sample_path = os.path.join(labeling_dir, '04a_validation_sample.json')
 os.makedirs(labeling_dir, exist_ok=True)
 
 #################################################################################################
 
-from config.config_03a import (
+from config.config_04a import (
     SAMPLE_N,  
     SAMPLE_SEED, 
     TRAIN_N, 
@@ -39,11 +35,11 @@ from config.config_03a import (
     MANUAL_VAL_IDS,
     DATA_COLUMNS_TO_INCLUDE
 )
-from config.config_03abc import (
+from config.config_04abc import (
     FEATURES_TO_LABEL
 )
 
-from src.feature_engineering_utils import run_labeling_samples
+from utils.feature_engineering_utils import run_labeling_samples
 
 #################################################################################################
 

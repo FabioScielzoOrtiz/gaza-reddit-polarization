@@ -50,7 +50,7 @@ from config.config_03bc_04bc_05a import (
 )
 
 # Import LLM function (src updated to async)
-from src.feature_engineering_utils import (
+from utils.feature_engineering_utils import (
     load_labeled_sample,
     run_validation_for_feature 
 )

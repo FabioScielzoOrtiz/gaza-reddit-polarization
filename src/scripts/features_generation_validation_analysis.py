@@ -28,7 +28,7 @@ validation_results_dir = os.path.join(project_path, 'data', 'validation_results'
 
 # --- IMPORTS ---
 
-from src.feature_engineering_utils import load_labeled_sample
+from utils.feature_engineering_utils import load_labeled_sample
 
 from config.config_03bcd_04bc import (
     FEATURE_CONFIG

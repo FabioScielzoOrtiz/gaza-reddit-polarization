@@ -34,7 +34,7 @@ from config.config_05b import (
     N_PCA_COMPONENTS
 )
 
-from src.feature_engineering_utils import run_reduce_embedding_dimension
+from utils.feature_engineering_utils import run_reduce_embedding_dimension
 
 #################################################################################################
 

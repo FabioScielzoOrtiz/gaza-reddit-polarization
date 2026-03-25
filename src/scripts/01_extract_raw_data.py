@@ -16,7 +16,7 @@ from config.config_01 import (
     LIST_SUBREDDITS, LIST_QUERIES, LIST_SORTS, 
     MAX_LIMIT, TIME_FILTER, BATCH_SIZE
 )
-from src.data_extraction_utils import authenticate_praw, run_data_extraction
+from utils.data_extraction_utils import authenticate_praw, run_data_extraction
 
 # --- LOGGING ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

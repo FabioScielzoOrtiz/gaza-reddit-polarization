@@ -4,7 +4,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..')
 sys.path.insert(0, project_path)
 
-from src.feature_engineering_utils import (content_relevance_score,
+from utils.feature_engineering_utils import (content_relevance_score,
                                            political_stance_score, 
                                            sentiment_score, 
                                            discourse_tone_score,
