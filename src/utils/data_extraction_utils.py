@@ -147,7 +147,7 @@ def run_data_extraction(reddit, subreddits, queries, sorts, max_limit, time_filt
                     post.comments.replace_more(limit=0)
                     comments_found = 0
                     
-                    for comment in post.comments.list():
+                    for comment in post.comments:
                         comment_record = {
                             'comment_id': comment.id,
                             'post_id': post.id, # Link clave

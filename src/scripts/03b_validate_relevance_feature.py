@@ -80,7 +80,6 @@ async def main():
     ###########################################################################
     
     # Load Data
-    df_train = load_labeled_sample(train_sample_path)
     df_val = load_labeled_sample(val_sample_path)
 
     ###########################################################################
@@ -93,7 +92,6 @@ async def main():
         await run_validation_for_feature(
             feature_name, 
             feature_config, 
-            df_train, 
             df_val, 
             validation_results_dir,
             client, 

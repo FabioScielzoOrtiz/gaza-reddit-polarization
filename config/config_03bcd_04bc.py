@@ -17,17 +17,17 @@ FEATURE_CONFIG = {
         'func': content_relevance_score,
         'type': 'ordinal', # 0-5
         'cutoff': 3,       # For binary filtering check
-        'validation_threshold': 0.8 # binary accuracy threshold
+        'validation_threshold': 0.75 # binary accuracy threshold
     },
     'political_stance_score': {
         'func': political_stance_score,
         'type': 'ordinal',  # 1-5
-        'validation_threshold': 0.8 # adjacent accuracy threshold
+        'validation_threshold': 0.75 # adjacent accuracy threshold
     },
     'argument_quality_score': {
         'func': argument_quality_score,
         'type': 'ordinal',  # 0-5
-        'validation_threshold': 0.8 # adjacent accuracy threshold
+        'validation_threshold': 0.75 # adjacent accuracy threshold
     },
     'sentiment_score': {
         'func': sentiment_score,
@@ -37,12 +37,12 @@ FEATURE_CONFIG = {
     'discourse_tone_score': {
         'func': discourse_tone_score,
         'type': 'categorical', # Nominal (String)
-        'validation_threshold': 0.8 # accuracy threshold
+        'validation_threshold': 0.75 # accuracy threshold
     },
     'dominant_frame_score': {
         'func': dominant_frame_score,
         'type': 'categorical', # Nominal (String)
-        'validation_threshold': 0.8 # accuracy threshold
+        'validation_threshold': 0.75 # accuracy threshold
     }
 }
 

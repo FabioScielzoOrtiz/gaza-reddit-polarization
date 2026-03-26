@@ -28,43 +28,34 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # ==============================================================================
 
 async def content_relevance_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
-                                  content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
+                                  content: str = None, return_prompt: bool = False):
     """
     Calcula la relevancia temática usando ejemplos Few-Shot dinámicos (Versión Async).
     """
-
     prompt = f"""
-You are a content rating specialist for an academic study on public opinion regarding the Gaza conflict on Reddit.
+You are an expert content rating specialist for an academic study on public opinion regarding the Gaza conflict on Reddit.
 
-Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided text.
-
----
-**STRICT GUIDELINES & EDGE CASES:**
-1. **FOCUS & INHERITED RELEVANCE:** The score MUST primarily reflect the relevance of the **Comment Body**. However, do NOT penalize short comments if they directly answer a highly relevant Post. If the Post is explicitly about the Gaza war (e.g., rebuilding Gaza) and the comment directly replies to it (e.g., "That's half the question"), the comment inherits the relevance and should score a 5.
-2. **US POLITICS & ELECTIONS (Score 0):** Discussions focused on US domestic politics, presidential elections, polling, voting behavior, or political party dynamics MUST be scored 0, even if the Gaza conflict is mentioned as a wedge issue or campaign topic (e.g., arms embargo impact on US voters). 
-3. **INTERNAL STATE/MILITARY AFFAIRS (Score 0):** Internal Israeli or US administrative news (e.g., IDF banning certain smartphone brands, internal tech policies) that do not discuss the actual war, combat, or Palestinians MUST be scored 0.
-4. **MEDIA DRAMA & POP CULTURE (Score 1):** Discussions focusing on how celebrities, actors, streamers, or pop culture entities react to the conflict belong in category 1 (Tangents & Opinion Trends).
+Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided Reddit comment.
 
 ---
 **TOPICAL RELEVANCE SCALE (0-5):**
-
-* **5 - Directly Related (Core Conflict):** Explicit discussion of the immediate Gaza conflict, main actors in this specific war (Hamas, IDF in Gaza), strategies, rebuilding efforts, or root causes directly related to the territory. *Includes short comments that directly engage with a level 5 Post.*
-* **4 - Clearly Related (Meta-Debates & Values):** Strong topical ties, but focused on broader debates implicitly linked to the conflict. Examples: philosophical debates on genocide accusations, hostage exchange mechanisms, or overarching discussions about Israeli/Jewish values vs. terrorism.
-* **3 - Marginal / Regional Context:** Mentions Israel, terrorism, or the Middle East, but focuses on different regional fronts (e.g., Syria, Egypt, Jordan) or general peace-making without explicitly tying it back to the ongoing Gaza war.
-* **2 - Accidental/Trivial:** Keywords used in non-political context (e.g., travel advice) or pure noise in a vaguely related thread.
-* **1 - Tangents, Media & Opinion Trends:** Mentions relevant keywords but focuses on pop-culture drama (influencers/actors commenting on the war), media manipulation control (Al Jazeera vs Western media), global energy policies (oil), or antisemitism in contexts outside the Middle East.
-* **0 - Discard/Spam/US Politics:** Completely unrelated content. *Strictly includes: US elections, domestic US polling, US partisan politics, European historical contexts (WWII), or internal military administrative rules (like IDF phone bans).*
+* **5 - Directly Related:** Explicit mention of the conflict, main actors (Israel, Hamas, IDF, Gaza), or core events.
+* **4 - Clearly Related:** Brief mentions, strong reactions, or aggressive statements unambiguously about the conflict.
+* **3 - Marginal Context:** Historical, political explanations related to the geographical area. Broad context
+* **2 - Accidental/Trivial:** Keywords used in non-political context (e.g., travel advice) or pure noise in a related thread.
+* **1 - Off-Topic Noise:** Personal attacks or emotional outbursts unrelated to the topic.
+* **0 - Discard/Spam:** Completely unrelated content.
 
 ---
 **OUTPUT FORMAT:**
 Return a single JSON object. 
 Keys:
-- "reasoning_content_relevance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria, mimicking the expert's reasoning style.
+- "reasoning_content_relevance_score": A concise explanation (1-2 sentences). Step 1: Identify the primary subject (e.g., US Elections, Ground War, Media). Step 2: Apply the scale or veto rules to justify the score.
 - "content_relevance_score": The integer score (0-5).
 
 Example: 
 {{
-  "reasoning_content_relevance_score": "The comments answers a question about rebuilding Gaza after the war.",
+  "reasoning_content_relevance_score": "The comment discusses the release of hostages and the implications of genocide accusations, which directly address the core events and legal battles of the Gaza conflict.",
   "content_relevance_score": 5
 }}
 
@@ -95,7 +86,7 @@ Example:
 # ==============================================================================
 
 async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
-                                 content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
+                                 content: str = None, return_prompt: bool = False):
     prompt = f"""
 You are an expert political analyst for a study on the Gaza conflict.
 
@@ -114,12 +105,6 @@ Your task is to assign a **Political Stance Score** from **1 (Pro-Palestine)** t
 * **3 - Neutral/Balanced:** Academic analysis, criticizing both sides equally, or factual reporting without opinion.
 * **2 - Leaning Pro-Palestine:** Focus on humanitarian crisis in Gaza, criticism of Israeli policies, empathy for Palestinian civilians.
 * **1 - Strongly Pro-Palestine:** Accusations of genocide/apartheid against Israel, strong support for Palestinian resistance.
-
----
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
-Learn from these human-labeled examples to calibrate your judgment:
-
-{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
@@ -159,7 +144,7 @@ Example:
 # ==============================================================================
 
 async def discourse_tone_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
-                               content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
+                               content: str = None, return_prompt: bool = False):
     prompt = f"""
 You are an expert linguist analyzing political discourse on Reddit regarding the Gaza conflict.
 
@@ -174,10 +159,6 @@ Your task is to identify the **Dominant Discourse Tone** of the provided comment
 4. **Sarcastic:** Uses irony, mockery, or satire. Says the opposite of what is meant to ridicule a position.
 5. **Informative:** Neutral sharing of links, breaking news, or clarifications without taking a clear analytical or emotional stance.
 6. **Other:** Content that does not fit the above categories.
-
----
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
-{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
@@ -217,7 +198,7 @@ Example:
 # ==============================================================================
 
 async def dominant_frame_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
-                               content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
+                               content: str = None, return_prompt: bool = False):
     prompt = f"""
 You are a media analyst studying framing effects in the Gaza conflict.
 
@@ -232,10 +213,6 @@ Your task is to identify the **Dominant Frame** used in the text. This is the "l
 4. **Media/Narrative:** Focus on how the war is reported, bias in news sources (CNN/BBC/Al Jazeera), propaganda ("hasbara"), or disinformation.
 5. **Historical/Religious:** Focus on historical claims (1948, 1967), biblical/religious justifications, or long-term historical context.
 6. **Other:** Content that does not fit the above frames.
-
----
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
-{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
@@ -275,7 +252,7 @@ Example:
 # ==============================================================================
 
 async def argument_quality_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
-                                 content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
+                                 content: str = None, return_prompt: bool = False):
     prompt = f"""
 You are an academic researcher evaluating the quality of public deliberation about Gaza conflict.
 
@@ -290,10 +267,6 @@ Your task is to assign an **Argument Quality Score** from **0 to 5** based on th
 * **3 - Moderate (Justified Opinion):** A position supported by at least one coherent reason or personal anecdote. Clear logic but limited depth.
 * **4 - High (Reasoned Argument):** Well-structured argument linking evidence to claims. Shows nuance or acknowledges context.
 * **5 - Elite (Sophisticated Discourse):** Exceptional depth. Cites specific sources/laws, considers counter-arguments, or synthesizes complex information.
-
----
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
-{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
@@ -333,7 +306,7 @@ Example:
 # ==============================================================================
 
 async def sentiment_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
-                          content: str = None, few_shot_examples: list = None, return_prompt: bool = False):
+                          content: str = None, return_prompt: bool = False):
     prompt = f"""
 You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse.
 
@@ -354,10 +327,6 @@ Do NOT confuse "Political Stance" with "Sentiment".
 - A user can be angry (Negative Sentiment) while supporting a "Good Cause".
 - A user can be hopeful (Positive Sentiment) about a controversial solution.
 - Focus ONLY on the **tone and emotion** of the language used, not the validity of their opinion.
-
----
-**EXPERT KNOWLEDGE: REFERENCE SAMPLES (Ground Truth)**
-{few_shot_examples}
 
 ---
 **OUTPUT FORMAT:**
@@ -459,72 +428,52 @@ def normalize_str_categories(values):
 #==============================================================================
 
 def run_labeling_samples(df, data_columns_to_include, features_to_label, 
-                         sample_n, sample_seed, train_n, manual_train_ids, manual_val_ids,
-                         train_sample_path, val_sample_path): 
+                         val_n, sample_seed, manual_val_ids, val_sample_path): 
 
-    logging.info("⚙️ Starting generation of samples (Manual + Random)...")
+    logging.info("⚙️ Starting generation of VALIDATION samples (Manual + Random)...")
 
-    # 2. EXTRACT MANUAL SAMPLES
-    # Identify manual rows
-    df_manual_train = df.filter(pl.col('comment_id').is_in(manual_train_ids))
+    # 1. EXTRACT MANUAL SAMPLES
     df_manual_val = df.filter(pl.col('comment_id').is_in(manual_val_ids))
     
     # Check if we found all requested IDs
-    if len(df_manual_train) < len(manual_train_ids):
-        found = df_manual_train['comment_id'].to_list()
-        missing = set(manual_train_ids) - set(found)
-        logging.warning(f"⚠️ Some MANUAL TRAIN IDs were not found in dataset: {missing}")
-
     if len(df_manual_val) < len(manual_val_ids):
         found = df_manual_val['comment_id'].to_list()
         missing = set(manual_val_ids) - set(found)
         logging.warning(f"⚠️ Some MANUAL VAL IDs were not found in dataset: {missing}")
 
-    logging.info(f"🔧 Manual Samples Extracted -> Train: {len(df_manual_train)} | Val: {len(df_manual_val)}")
+    logging.info(f"🔧 Manual Validation Samples Extracted -> {len(df_manual_val)}")
 
-    # 3. PREPARE RANDOM POOL (Excluding Manual IDs to avoid duplicates/leakage)
-    all_manual_ids = manual_train_ids + manual_val_ids
-    df_pool = df.filter(~ pl.col('comment_id').is_in(all_manual_ids))
+    # 2. PREPARE RANDOM POOL (Excluding Manual IDs to avoid duplicates/leakage)
+    df_pool = df.filter(~pl.col('comment_id').is_in(manual_val_ids))
     
-    # 4. CALCULATE QUOTAS
-    val_n = sample_n - train_n   
+    # 3. CALCULATE QUOTAS
     manual_val_n = len(df_manual_val)
-    manual_train_n = len(df_manual_train)
-    
-    # Calculate how many randoms we still need
-    random_train_n = max(0, train_n - manual_train_n)
     random_val_n = max(0, val_n - manual_val_n)
-    random_total_n = random_train_n + random_val_n
-    logging.info(f"🎲 Random Samples Needed -> Train: {random_train_n} | Val: {random_val_n}")
+    logging.info(f"🎲 Random Validation Samples Needed -> {random_val_n}")
 
-    # 5. SAMPLE RANDOM DATA
+    # 4. SAMPLE RANDOM DATA
     try:
-        df_random_selected = df_pool.sample(n=random_total_n, seed=sample_seed, with_replacement=False)
+        df_random_val = df_pool.sample(n=random_val_n, seed=sample_seed, with_replacement=False)
     except Exception:
         logging.warning("⚠️ Pool is smaller than requested samples. Taking everything available.")
-        df_random_selected = df_pool
+        df_random_val = df_pool
 
-    # Split the random selection into train and val chunks
-    df_random_train = df_random_selected[:random_train_n]
-    df_random_val = df_random_selected[random_train_n:]
-
-    # 6. COMBINE MANUAL + RANDOM
-    df_train_final = pl.concat([df_manual_train, df_random_train])
+    # 5. COMBINE MANUAL + RANDOM
     df_val_final = pl.concat([df_manual_val, df_random_val])
 
-    logging.info(f"📊 FINAL SPLIT -> Train (Few-Shot): {len(df_train_final)} | Validation (Blind): {len(df_val_final)}")
+    logging.info(f"📊 FINAL VALIDATION SET -> {len(df_val_final)} samples")
 
-    # 7. EXPORT TO JSON
-    export_labeling_samples_to_json(df_train_final, train_sample_path, data_columns_to_include, features_to_label)
+    # 6. EXPORT TO JSON
     export_labeling_samples_to_json(df_val_final, val_sample_path, data_columns_to_include, features_to_label)
 
-    logging.info("✅ Process completed. Check 'data/labeled_samples' folder.")
+    logging.info(f"✅ Process completed. Check {val_sample_path}")
+
 #==============================================================================
 # VALIDATION WORKER (ASYNC)
 #==============================================================================
 
 async def validate_single_row(sem, row, client, feature_name, feature_config, 
-                             few_shot_examples, model_name, temperature):
+                             model_name, temperature):
     """
     Worker para validar una sola fila con control de concurrencia.
     Mantiene la misma estructura que el proceso de generación.
@@ -540,7 +489,6 @@ async def validate_single_row(sem, row, client, feature_name, feature_config,
             llm_response = await feature_config['func'](
                 client=client, 
                 content=text_input, 
-                few_shot_examples=few_shot_examples, 
                 model_name=model_name,
                 temperature=temperature,
                 return_prompt=False
@@ -581,7 +529,7 @@ async def validate_single_row(sem, row, client, feature_name, feature_config,
 # VALIDATION RUNNER (PARALLEL BATCH ASYNC)
 #==============================================================================
 
-async def run_validation_for_feature(feature_name, feature_config, df_train, df_val, 
+async def run_validation_for_feature(feature_name, feature_config, df_val, 
                                      validation_results_dir, client, model_name, temperature,
                                      n_validation_iterations, global_validation_threshold,
                                      max_concurrent_request, batch_size): 
@@ -602,14 +550,12 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
     
     logging.info(f"\n🔵 VALIDATING FEATURE: {feature_name.upper()}")
     
-    if len(df_train) == 0 or len(df_val) == 0:
+    if len(df_val) == 0:
         logging.error("❌ Error: Missing labeled data.")
         return
 
     # 1. Preparación de datos
-    df_train = df_train.filter(pl.col(feature_name).is_not_null())
     df_val = df_val.filter(pl.col(feature_name).is_not_null())
-    few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
     
     records = df_val.to_dicts()
     total_records = len(records)
@@ -651,7 +597,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
             
             tasks = [
                 validate_single_row(sem, row, client, feature_name, feature_config, 
-                                   few_shot_examples, model_name, temperature)
+                                    model_name, temperature)
                 for row in chunk
             ]
             
@@ -722,7 +668,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_train, df_
 #==============================================================================
 
 async def process_single_row(sem, row, client, feature_name, feature_config, 
-                             few_shot_examples, model_name, temperature, 
+                             model_name, temperature, 
                              metadata_file_path, file_lock):
     """Worker para procesar una fila individual con semáforo"""
 
@@ -737,7 +683,6 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
             llm_response, llm_prompt = await feature_config['func'](
                 client=client, 
                 content=text_input, 
-                few_shot_examples=few_shot_examples,
                 model_name=model_name,
                 temperature=temperature,
                 return_prompt=True
@@ -798,7 +743,7 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
     
 ##############################################################
 
-async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, df_train, 
+async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, 
                                     batch_save_size, max_concurrent_request,  
                                     client, model_name, temperature, metadata_file_path, file_lock,
                                     pilot_mode=None, pilot_size=None, pilot_seed=None): 
@@ -806,8 +751,6 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
     logging.info(f"▶️ STARTING GENERATION of {feature_name.upper()}")
     mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
     logging.info(f"MODE: {mode_msg}")
-
-    few_shot_examples = process_labeled_sample_for_llm(df_train, feature_name)
 
     # 1. PREPARE DATA
     processed_ids = set()
@@ -842,7 +785,7 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
         chunk = records[i : i + batch_save_size]
         
         tasks = [
-            process_single_row(sem, row, client, feature_name, feature_config, few_shot_examples, model_name, temperature, metadata_file_path, file_lock)
+            process_single_row(sem, row, client, feature_name, feature_config, model_name, temperature, metadata_file_path, file_lock)
             for row in chunk
         ]
         

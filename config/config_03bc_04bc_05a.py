@@ -1,7 +1,7 @@
 LLM_MODEL_NAME = "gpt-4o-mini"
 LLM_TEMPERATURE = 0.0
 EMBEDDING_MODEL_NAME = "text-embedding-3-small" 
-PILOT_MODE = True # Set to True to process only a small sample (e.g., 10 records). Set to False to process the entire dataset.
+PILOT_MODE = False # Set to True to process only a small sample (e.g., 10 records). Set to False to process the entire dataset.
 PILOT_SIZE = 50
 PILOT_SEED = 111
 BATCH_SAVE_SIZE = 1000 # Save progress every N records 

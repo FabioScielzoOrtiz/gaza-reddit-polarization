@@ -55,7 +55,7 @@ def get_data_for_features_validation_analysis(df_val, val_results, feature_name,
     
     # --- Lógica Diferenciada por Tipo de Feature ---
     
-    if feature_type in ['ordinal', 'continuous']:
+    if feature_type in ['continuous']:
         # Lógica original para numéricas
         true_predicted_values_df = true_values_df.join(
             iter_pred_values_df_long, on='comment_id', how='inner'
@@ -99,6 +99,34 @@ def get_data_for_features_validation_analysis(df_val, val_results, feature_name,
         ).sort(by='predicted_values_consistency', descending=True)
 
         metric_cols = ['predicted_values_mode', 'predicted_values_consistency', 'predicted_values_variability']
+    
+    elif feature_type in ['ordinal']:
+        # LOGICA CORREGIDA PARA CATEGÓRICAS
+        
+        true_predicted_values_df = true_values_df.join(
+            iter_pred_values_df_long, on='comment_id', how='inner'
+        ).with_columns(
+            predicted_values_mean = pl.col('predicted_values').list.mean().round(2),
+            predicted_values_std = pl.col('predicted_values').list.std().round(2),
+            # 1. Calculamos la MODA usando list.eval y value_counts
+            # value_counts(sort=True) pone el más frecuente primero.
+            # Tomamos el primer struct y extraemos el valor (el nombre de campo es "" o el nombre de la col, pero struct[0] es el valor)
+            predicted_values_mode = pl.col('predicted_values').list.eval(
+                pl.element().value_counts(sort=True).struct[0].first()
+            ).list.first(),
+
+            # 2. Calculamos la CONSISTENCIA (Frecuencia del valor más repetido / Total)
+            # Extraemos el campo "count" (struct[1]) del primer elemento (el más frecuente)
+            predicted_values_consistency = pl.col('predicted_values').list.eval(
+                pl.element().value_counts(sort=True).struct.field("count").first() / pl.element().len()
+            ).list.first()
+        ).with_columns(
+
+            predicted_values_variability = 1 - pl.col('predicted_values_consistency')
+            
+        ).sort(by='predicted_values_consistency', descending=True)
+
+        metric_cols = ['predicted_values_mean', 'predicted_values_std', 'predicted_values_mode', 'predicted_values_consistency', 'predicted_values_variability']
     
     else:
         raise ValueError(f"Tipo de feature no soportado: {feature_type}")
