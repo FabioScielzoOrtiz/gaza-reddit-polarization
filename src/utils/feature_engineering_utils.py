@@ -38,13 +38,17 @@ You are an expert content rating specialist for an academic study on public opin
 Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided Reddit comment.
 
 ---
+**CRITICAL CONTEXT: THE "DISCARD" THRESHOLD (< 3)**
+Keep in mind that any comment receiving a score of 0, 1, or 2 **will be completely discarded from the final analysis**. You must use these lower scores confidently to filter out any comment that does not provide useful data about the public opinion on the Gaza conflict (e.g., purely domestic US politics, generic noise, meta-Reddit discussions).
+
+---
 **TOPICAL RELEVANCE SCALE (0-5):**
-* **5 - Directly Related:** Explicit mention of the conflict, main actors (Israel, Hamas, IDF, Gaza), or core events.
-* **4 - Clearly Related:** Brief mentions, strong reactions, or aggressive statements unambiguously about the conflict.
-* **3 - Marginal Context:** Historical, political explanations related to the geographical area. Broad context
-* **2 - Accidental/Trivial:** Keywords used in non-political context (e.g., travel advice) or pure noise in a related thread.
-* **1 - Off-Topic Noise:** Personal attacks or emotional outbursts unrelated to the topic.
-* **0 - Discard/Spam:** Completely unrelated content.
+* **5 - Directly Related (Core Conflict):** Explicit discussion of the core conflict, everyday life in Gaza, humanitarian aid, or the main actors (Israel, Hamas, IDF, Gaza) on the ground. (e.g., civilian life, death tolls, direct war events).
+* **4 - Clearly Related (Media, Opinion, Relations):** Discussions focused on media coverage of the conflict, public opinion/protests regarding the conflict, or international/military relations with Israel. Includes brief reactions/insults directed specifically at these topics.
+* **3 - Marginal Context:** Historical, political explanations related to the geographical area. Broad context.
+* **2 - Accidental/Trivial / Meta-Reddit:** Meta-commentary about how Reddit works (e.g., listing subreddits), keywords used in non-political context, or trivial noise.
+* **1 - Off-Topic Tangential:** Broad ideological discussions not directly tied to the current conflict (e.g., general media antisemitism, WWII comparisons) or personal attacks unrelated to the topic.
+* **0 - Discard / Internal Politics / Generic:** Focuses on US Internal Affairs/politicians, generic/unclear short comments ("badass"), or completely unrelated content.
 
 ---
 **OUTPUT FORMAT:**
@@ -62,6 +66,7 @@ Example:
 **TEXT TO CLASSIFY:**
 {content}
 """
+
 
     try:
         response = await client.chat.completions.create(
