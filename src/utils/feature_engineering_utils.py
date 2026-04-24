@@ -787,6 +787,7 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
 
     # 3. BATCH PROCESSING LOOP
     for i in range(0, total_records, batch_save_size):
+        time.sleep(3)
         chunk = records[i : i + batch_save_size]
         
         tasks = [
