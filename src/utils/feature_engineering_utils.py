@@ -747,7 +747,7 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
         return response
     
 ##############################################################
-
+'''
 async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, 
                                     batch_save_size, max_concurrent_request,  
                                     client, model_name, temperature, metadata_file_path, file_lock,
@@ -810,6 +810,113 @@ async def run_generation_for_feature(feature_name, feature_file_path, feature_co
                     logging.error(f"❌ Error saving batch: {e}")
             else:
                 df_new_chunk.write_parquet(feature_file_path)
+
+        # 4. SAVE BATCH
+        if results:
+            df_new_chunk = pl.DataFrame(results)
+            if os.path.exists(feature_file_path):
+                try:
+                    # 1. Read the existing data
+                    df_current = pl.read_parquet(feature_file_path)
+                    
+                    # 2. Combine with the new chunk
+                    df_combined = pl.concat([df_current, df_new_chunk])
+                    
+                    # 3. Write to a temporary file to avoid the memory-map lock (os error 1224)
+                    temp_file_path = f"{feature_file_path}.tmp"
+                    df_combined.write_parquet(temp_file_path)
+                    
+                    # 4. Safely overwrite the original file
+                    os.replace(temp_file_path, feature_file_path)
+                    
+                except Exception as e:
+                    logging.error(f"❌ Error saving batch: {e}")
+            else:
+                # If it's the first batch, just write directly
+                df_new_chunk.write_parquet(feature_file_path)
+
+    logging.info("✅ Async Generation Process Completed.")
+'''
+
+async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, 
+                                    batch_save_size, max_concurrent_request,  
+                                    client, model_name, temperature, metadata_file_path, file_lock,
+                                    pilot_mode=None, pilot_size=None, pilot_seed=None): 
+
+    logging.info(f"▶️ STARTING GENERATION of {feature_name.upper()}")
+    mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
+    logging.info(f"MODE: {mode_msg}")
+
+    # 1. PREPARE DATA
+    # FIX 1: memory_map=False on the resume read so the file handle is released immediately
+    processed_ids = set()
+    if os.path.exists(feature_file_path):
+        try:
+            df_existing = pl.read_parquet(feature_file_path, memory_map=False)
+            processed_ids = set(df_existing['comment_id'].to_list())
+            del df_existing  # explicit release
+            logging.info(f"🔄 Resume: Found {len(processed_ids)} processed records.")
+        except Exception:
+            pass
+
+    df_to_process = df.filter(~pl.col('comment_id').is_in(processed_ids))
+    
+    if pilot_mode:
+        if len(df_to_process) > pilot_size:
+            df_to_process = df_to_process.sample(n=pilot_size, seed=pilot_seed)
+    
+    records = df_to_process.to_dicts() 
+    total_records = len(records)
+    
+    if total_records == 0:
+        logging.info("✅ No new records to process. Exiting.")
+        return
+
+    logging.info(f"⏳ Processing {total_records} records with AsyncIO...")
+
+    # 2. CONCURRENCY CONTROL
+    sem = asyncio.Semaphore(max_concurrent_request)
+
+    # 3. BATCH PROCESSING LOOP
+    for i in range(0, total_records, batch_save_size):
+        time.sleep(3)
+        chunk = records[i : i + batch_save_size]
+        
+        tasks = [
+            process_single_row(sem, row, client, feature_name, feature_config, model_name, temperature, metadata_file_path, file_lock)
+            for row in chunk
+        ]
+        
+        logging.info(f"🚀 Launching batch {i} - {min(i+batch_save_size, total_records)}...")
+        
+        results = await tqdm_asyncio.gather(*tasks)
+        
+        # 4. SAVE BATCH
+        # FIX 2: memory_map=False on the concat read + FIX 3: write to tmp then rename
+        if results:
+            df_new_chunk = pl.DataFrame(results)
+            tmp_path = feature_file_path + ".tmp"
+            try:
+                if os.path.exists(feature_file_path):
+                    df_current = pl.read_parquet(feature_file_path, memory_map=False)
+                    merged = pl.concat([df_current, df_new_chunk])
+                    del df_current  # release before write
+                    merged.write_parquet(tmp_path)
+                    del merged
+                else:
+                    df_new_chunk.write_parquet(tmp_path)
+                
+                # Atomic replace: delete original, rename tmp
+                if os.path.exists(feature_file_path):
+                    os.remove(feature_file_path)
+                os.rename(tmp_path, feature_file_path)
+                
+                logging.info(f"💾 Batch {i}-{min(i+batch_save_size, total_records)} saved.")
+
+            except Exception as e:
+                logging.error(f"❌ Error saving batch: {e}")
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)  # clean up orphaned tmp file
 
     logging.info("✅ Async Generation Process Completed.")
 
