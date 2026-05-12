@@ -38,8 +38,8 @@ You are an expert content rating specialist for an academic study on public opin
 Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided Reddit comment.
 
 ---
-**CRITICAL CONTEXT: THE "DISCARD" THRESHOLD (< 3)**
-Keep in mind that any comment receiving a score of 0, 1, or 2 **will be completely discarded from the final analysis**. You must use these lower scores confidently to filter out any comment that does not provide useful data about the public opinion on the Gaza conflict (e.g., purely domestic US politics, generic noise, meta-Reddit discussions).
+**CRITICAL CONTEXT: THE "DISCARD" THRESHOLD (< 4)**
+Keep in mind that any comment receiving a score of 0, 1, 2 or 3 **will be completely discarded from the final analysis**. You must use these lower scores confidently to filter out any comment that does not provide useful data about the public opinion on the Gaza conflict (e.g., purely domestic US politics, generic noise, meta-Reddit discussions).
 
 ---
 **TOPICAL RELEVANCE SCALE (0-5):**
@@ -93,23 +93,31 @@ Example:
 async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
                                  content: str = None, return_prompt: bool = False):
     prompt = f"""
-You are an expert political analyst for a study on the Gaza conflict.
+You are an expert political analyst working on a research study about the Gaza conflict.
 
-Your task is to assign a **Political Stance Score** from **1 (Pro-Palestine)** to **5 (Pro-Israel)**.
+Your task is to assign a Political Stance Score from 1 (Pro-Palestine) to 5 (Pro-Israel) based on the comment provided.
 
 ---
 **STRICT GUIDELINES:**
 1. **FOCUS:** Analyze the **Comment Body**. Use Post context only for interpretation.
 2. **TONE vs STANCE:** Distinguish between aggressive tone and political direction. An aggressive comment can be Pro-Israel (5) or Pro-Palestine (1).
 3. **NEUTRALITY:** Score 3 is ONLY for truly balanced analysis or unrelated neutral facts.
+4. IRONY & SARCASM: If sarcasm or irony is detected, interpret the intended meaning, not the literal one. Note this explicitly in your reasoning.
+5. UNCLASSIFIABLE: If the comment is spam, off-topic, incoherent, or in a language that prevents reliable interpretation, assign score -1.
 
 ---
 **POLITICAL STANCE SCALE (1-5):**
-* **5 - Strongly Pro-Israel:** Explicit support for Israel/IDF, justification of actions, condemnation of Hamas as sole aggressor.
-* **4 - Leaning Pro-Israel:** Empathy for Israeli civilians, focus on security rights, mild criticism of Palestine.
-* **3 - Neutral/Balanced:** Academic analysis, criticizing both sides equally, or factual reporting without opinion.
-* **2 - Leaning Pro-Palestine:** Focus on humanitarian crisis in Gaza, criticism of Israeli policies, empathy for Palestinian civilians.
-* **1 - Strongly Pro-Palestine:** Accusations of genocide/apartheid against Israel, strong support for Palestinian resistance.
+* 5 — Strongly Pro-Israel: Explicit support for Israel/IDF; justification of military actions; condemning Hamas as the sole aggressor; denying or minimizing Palestinian civilian casualties.
+
+* 4 — Leaning Pro-Israel: Emphasis on Israeli security rights; empathy primarily for Israeli civilians; mild or indirect criticism of Palestinian leadership or actions.
+
+* 3 — Neutral / Balanced: Criticism of both sides with comparable weight; academic or factual reporting without an evident opinion; no clear advocacy for either party.
+
+* 2 — Leaning Pro-Palestine: Focus on humanitarian crisis in Gaza; criticism of Israeli policies or military conduct; primary empathy directed at Palestinian civilians.
+
+* 1 — Strongly Pro-Palestine: Characterization of Israeli actions as genocide, ethnic cleansing, or apartheid (used as accusatory framing, not as neutral legal citation); explicit support for Palestinian armed resistance; denial of Israeli civilian harm.
+
+* -1 — Unclassifiable: Spam, off-topic content, incoherent text, or language that prevents reliable interpretation.
 
 ---
 **OUTPUT FORMAT:**
@@ -117,11 +125,33 @@ Return a single JSON object.
 Keys:
 - "reasoning_political_stance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
 - "political_stance_score": The integer score (1-5).
-Example: 
-{{
-    "reasoning_political_stance_score": "The comment justifies the creation of Israel through historical conquest rights ('technically their land') and frames the partition as 'generous', while assigning blame for the initial conflict solely to Arabs. This is 'Strongly Pro-Israel'.",
-    "political_stance_score": 5
-}}
+
+---
+EXAMPLES:
+
+- Score 1:
+{
+  "reasoning_political_stance_score": "The comment accuses Israel of conducting ethnic cleansing and frames armed Palestinian resistance as justified self-defense. This aligns with 'Strongly Pro-Palestine'.",
+  "political_stance_score": 1
+}
+
+- Score 3:
+{
+  "reasoning_political_stance_score": "The comment criticizes both Hamas rocket attacks and IDF airstrikes with equal emphasis, without advocating for either side. This qualifies as 'Neutral / Balanced'.",
+  "political_stance_score": 3
+}
+
+- Score 5:
+{
+  "reasoning_political_stance_score": "The comment justifies the creation of Israel through historical conquest rights ('technically their land') and frames the partition as 'generous', assigning blame for the conflict solely to Arabs. This is 'Strongly Pro-Israel'.",
+  "political_stance_score": 5
+}
+
+- Score -1:
+{
+  "reasoning_political_stance_score": "The comment is off-topic and contains no content related to the conflict. Assigned as 'Unclassifiable'.",
+  "political_stance_score": -1
+}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -156,14 +186,27 @@ You are an expert linguist analyzing political discourse on Reddit regarding the
 Your task is to identify the **Dominant Discourse Tone** of the provided comment.
 
 ---
-**CATEGORIES (Choose exactly ONE):**
+**CATEGORIES (Choose exactly ONE — see Priority Rule below):**
 
-1. **Analytical:** Objective tone, uses logic, cites sources, focuses on facts or strategic analysis. Low emotional charge.
-2. **Emotional:** Dominant expression of sadness, grief, fear, empathy, or despair. Focus on suffering (humanitarian).
-3. **Hostile:** Aggressive, insulting, uses hate speech, dehumanization, or ad-hominem attacks against users or groups.
-4. **Sarcastic:** Uses irony, mockery, or satire. Says the opposite of what is meant to ridicule a position.
-5. **Informative:** Neutral sharing of links, breaking news, or clarifications without taking a clear analytical or emotional stance.
-6. **Other:** Content that does not fit the above categories.
+1. Analytical: Objective tone grounded in logic, strategic reasoning, or structured argumentation. May cite sources or historical precedent. Low emotional charge. The author is building a case, not merely reporting.
+
+2. Emotional: Dominant expression of sadness, grief, fear, empathy, or despair. Focus on human suffering. Emotional language clearly outweighs any analytical or informational content.
+
+3. Hostile: Aggressive, insulting, dehumanizing, or ad-hominem. Directed at users, groups, or nations. Includes slurs, threats, and rhetoric that degrades the target.
+
+4. Sarcastic: Uses irony, mockery, or satire. The intended meaning is the opposite of the literal text. The sarcastic register must be the dominant mode, not an isolated phrase.
+
+5. Informative: Neutral sharing of links, data, breaking news, or clarifications. No argument is being constructed and no emotional stance is evident — the author's role is courier, not analyst.
+
+6. Other: Use ONLY for content that genuinely resists classification: very short reactions (e.g. "lol", "+1", single emojis), fully off-topic comments, or incoherent text. Explain why in the reasoning field.
+
+---
+**PRIORITY RULE (for mixed-tone comments):**
+When multiple tones are present, apply this hierarchy — assign the category highest on the list that is clearly dominant:
+
+  Hostile > Sarcastic > Emotional > Analytical > Informative > Other
+
+A tone is "clearly dominant" if it characterizes the overall register of the comment, not just one phrase.
 
 ---
 **OUTPUT FORMAT:**
@@ -171,11 +214,45 @@ Return a single JSON object.
 Keys:
 - "reasoning_discourse_tone_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
 - "discourse_tone_score": The exact category name from the list above.
-Example: 
-{{
-    "reasoning_discourse_tone_score": "The user attempts an objective historical explanation, citing empires and wars to justify a position. It avoids overt emotional language.",
-    "discourse_tone_score": "Analytical"
-}}
+
+---
+**EXAMPLES:**
+
+// Analytical
+{
+  "reasoning_discourse_tone_score": "The user constructs a structured historical argument citing empires and wars to justify a geopolitical position, with no overt emotional language.",
+  "discourse_tone_score": "Analytical"
+}
+
+// Emotional
+{
+  "reasoning_discourse_tone_score": "The comment centers on the grief of families displaced in Gaza, using language of despair and loss throughout with no analytical framing.",
+  "discourse_tone_score": "Emotional"
+}
+
+// Hostile
+{
+  "reasoning_discourse_tone_score": "The comment uses dehumanizing language directed at a national group and includes a direct personal attack on another user.",
+  "discourse_tone_score": "Hostile"
+}
+
+// Sarcastic
+{
+  "reasoning_discourse_tone_score": "The comment sarcastically praises a military decision ('great move, very humane') to ridicule it. The ironic register dominates the entire message.",
+  "discourse_tone_score": "Sarcastic"
+}
+
+// Informative
+{
+  "reasoning_discourse_tone_score": "The comment shares a Reuters article link with a one-line neutral summary and no editorial opinion or emotional framing.",
+  "discourse_tone_score": "Informative"
+}
+
+// Other
+{
+  "reasoning_discourse_tone_score": "The comment consists of a single emoji with no accompanying text, making tone classification unreliable.",
+  "discourse_tone_score": "Other"
+}
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -207,28 +284,115 @@ async def dominant_frame_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mi
     prompt = f"""
 You are a media analyst studying framing effects in the Gaza conflict.
 
-Your task is to identify the **Dominant Frame** used in the text. This is the "lens" through which the user views the issue.
+Your task is to identify the **Dominant Frame** used in the text. This is the primary "lens" through which the content approaches the issue — not the topic, but the angle, emphasis, and implicit question being answered.
 
 ---
 **CATEGORIES (Choose exactly ONE):**
 
-1. **Humanitarian/Legal:** Focus on human rights, international law (ICJ/UN), war crimes, genocide definitions, civilian casualties, aid, and suffering.
-2. **Security/Military:** Focus on military tactics, Hamas capabilities, IDF strategy, borders, hostages, terrorism, and self-defense rights.
-3. **Geopolitical/Political:** Focus on international relations (US/Iran/Egypt), UN resolutions, domestic politics (Netanyahu/Biden), and diplomatic solutions.
-4. **Media/Narrative:** Focus on how the war is reported, bias in news sources (CNN/BBC/Al Jazeera), propaganda ("hasbara"), or disinformation.
-5. **Historical/Religious:** Focus on historical claims (1948, 1967), biblical/religious justifications, or long-term historical context.
-6. **Other:** Content that does not fit the above frames.
+1. **Humanitarian**
+   Core question: *"What is happening to people?"*
+   Signals: civilian casualties, displacement, famine, hospitals, grief, aid delivery, suffering of non-combatants. The focus is on human experience and loss, without requiring a legal or accountability framework.
+
+2. **Legal/Institutional**
+   Core question: *"Is this legal or legitimate under international norms?"*
+   Signals: ICJ rulings, ICC proceedings, Geneva Conventions, UN resolutions, war crimes accusations, genocide as a legal term, international humanitarian law (IHL), accountability mechanisms.
+
+3. **Security/Military**
+   Core question: *"Who is the threat and how should it be countered?"*
+   Signals: IDF strategy and operations, Hamas military capabilities, hostage situations, tunnel infrastructure, terrorism framing, right to self-defense, military objectives and proportionality in tactical terms.
+
+4. **Geopolitical/Diplomatic**
+   Core question: *"What are states doing and why?"*
+   Signals: international alliances, US/Iran/Egypt/Qatar roles, UNSC vetoes, diplomatic pressure, ceasefire negotiations, arms supply decisions, normalization agreements (Abraham Accords), regional power dynamics.
+
+5. **Domestic Politics**
+   Core question: *"How does this affect a country's internal politics?"*
+   Signals: electoral incentives, governing coalitions, parliamentary debates, public opinion pressure, political survival of leaders (Netanyahu's coalition, Biden's base), campus protests as domestic political events — without primary focus on international diplomacy.
+
+6. **Historical**
+   Core question: *"What does the past tell us about who is right?"*
+   Signals: Nakba, British Mandate, 1948/1967 wars, settlement history, land rights claims, origins of the conflict, Palestinian displacement history, foundational political events.
+
+7. **Religious/Civilizational**
+   Core question: *"What do faith or civilizational identity say about this conflict?"*
+   Signals: biblical or Quranic justifications, "Promised Land," jihad, clash of civilizations, Jewish/Islamic identity as the primary analytical lens, divine mandate or destiny framing.
+
+8. **Media/Narrative**
+   Core question: *"How is this story being told, and who controls the narrative?"*
+   Signals: media bias accusations, propaganda, disinformation, hasbara, coverage framing (CNN/BBC/Al Jazeera comparisons), discourse control, debates over which narrative dominates the public sphere.
+
+9. **Other**
+   Use only when the text is genuinely unclassifiable — i.e., it does not meaningfully invoke any of the above frames. This is a residual category, not an analytical frame.
+
+---
+**CLASSIFICATION RULES:**
+- Choose the ONE frame that best captures the dominant lens of the text.
+- If multiple frames appear, select the one that is most structurally central to the argument or emotional register — not merely mentioned in passing.
+- Do not confuse *topic* with *frame*: a text about civilian deaths can be Humanitarian (suffering focus), Legal/Institutional (accountability focus), or Security/Military (collateral damage as tactical reality), depending on how it is framed.
+- "Other" should be rare. If you are tempted to use it, re-read the category descriptions carefully.
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object. 
+Return a single JSON object.
 Keys:
-- "reasoning_dominant_frame_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "reasoning_dominant_frame_score": A concise explanation (1-2 sentences) linking specific textual signals to the chosen category's core question.
 - "dominant_frame_score": The exact category name from the list above.
-Example: 
+
+---
+**Example outputs:**
+
+// 1. Humanitarian
 {{
-    "reasoning_dominant_frame_score": "The entire argument relies on 1948/pre-1948 history (Ottoman Empire, British Mandate) to explain the present legitimacy.",
-    "dominant_frame_score": "Historical/Religious"
+    "reasoning_dominant_frame_score": "The text foregrounds civilian suffering — child hunger, destroyed hospitals, generational harm — without invoking legal accountability or military logic. The register is emotional and centered on human experience.",
+    "dominant_frame_score": "Humanitarian"
+}}
+
+// 2. Legal/Institutional
+{{
+    "reasoning_dominant_frame_score": "The argument is structured around ICJ rulings, the Genocide Convention, and IHL compliance — the central question is legal legitimacy and institutional accountability, not human suffering per se.",
+    "dominant_frame_score": "Legal/Institutional"
+}}
+
+// 3. Security/Military
+{{
+    "reasoning_dominant_frame_score": "The text analyzes tunnel infrastructure, IDF tactical options, and the military objective of neutralizing Hamas — the lens is purely strategic, focused on threat assessment and operational effectiveness.",
+    "dominant_frame_score": "Security/Military"
+}}
+
+// 4. Geopolitical/Diplomatic
+{{
+    "reasoning_dominant_frame_score": "The text centers on state actors (Qatar, Egypt, US), their strategic interests, and diplomatic leverage — the driving question is what states are doing and why, not domestic politics or military tactics.",
+    "dominant_frame_score": "Geopolitical/Diplomatic"
+}}
+
+// 5. Domestic Politics
+{{
+    "reasoning_dominant_frame_score": "The text reads the conflict through the lens of US electoral incentives, donor pressure, and base management — the primary question is domestic political survival, not international diplomacy or military strategy.",
+    "dominant_frame_score": "Domestic Politics"
+}}
+
+// 6. Historical
+{{
+    "reasoning_dominant_frame_score": "The argument explicitly roots the present conflict in the Nakba and 1948 displacement, treating historical land rights and foundational events as the essential frame for understanding the current situation.",
+    "dominant_frame_score": "Historical"
+}}
+
+// 7. Religious/Civilizational
+{{
+    "reasoning_dominant_frame_score": "The text frames territorial claims through biblical covenant and divine promise, making religious identity and theological obligation — not history or law — the primary justification for the political position.",
+    "dominant_frame_score": "Religious/Civilizational"
+}}
+
+// 8. Media/Narrative
+{{
+    "reasoning_dominant_frame_score": "The text is a meta-analysis of media framing itself — comparing outlet language, exposing narrative construction, and arguing that news coverage shapes rather than reflects the conflict. The subject is the discourse, not the events.",
+    "dominant_frame_score": "Media/Narrative"
+}}
+
+// 9. Other
+{{
+    "reasoning_dominant_frame_score": "The text expresses vague emotional disengagement without invoking any analytical lens — no legal, military, historical, political, or narrative framework is present. It is genuinely unclassifiable.",
+    "dominant_frame_score": "Other"
 }}
 
 **TEXT TO CLASSIFY:**
@@ -259,31 +423,86 @@ Example:
 async def argument_quality_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
                                  content: str = None, return_prompt: bool = False):
     prompt = f"""
-You are an academic researcher evaluating the quality of public deliberation about Gaza conflict.
+You are an academic researcher evaluating the quality of public deliberation about the Gaza conflict.
 
-Your task is to assign an **Argument Quality Score** from **0 to 5** based on the sophistication and justification of the text.
+Your task is to assign an **Argument Quality Score** from **0 to 5** based on the sophistication, structure, and justification of the text — regardless of the political position it defends.
 
 ---
 **SCORING RUBRIC:**
 
-* **0 - Spam/Non-Argument:** Broken text, bots, or completely unintelligible noise.
-* **1 - Low (Pure Reaction):** Name-calling, simple slogans ("Free Palestine", "I stand with Israel"), or single-word emotional reactions without reasons.
-* **2 - Basic (Opinion):** Stating a clear position but with minimal or weak justification. Repetitive talking points.
-* **3 - Moderate (Justified Opinion):** A position supported by at least one coherent reason or personal anecdote. Clear logic but limited depth.
-* **4 - High (Reasoned Argument):** Well-structured argument linking evidence to claims. Shows nuance or acknowledges context.
-* **5 - Elite (Sophisticated Discourse):** Exceptional depth. Cites specific sources/laws, considers counter-arguments, or synthesizes complex information.
+**0 — Spam / Non-Argument**
+The text cannot be evaluated as deliberation. Includes: broken or garbled text, bot-generated noise, purely phatic content ("lol", "???"), or content with no discernible communicative intent related to the conflict.
+
+**1 — Pure Reaction**
+A position or emotion is expressed but no reason is given. Includes: slogans ("Free Palestine", "I stand with Israel"), name-calling, single-word reactions, emoji-only responses, or content whose entire argumentative value is an assertion of alignment.
+
+**2 — Bare Opinion**
+A position is stated with at least a minimal justification, but the reasoning is thin, circular, or purely repetitive of talking points. The claim-to-evidence link is weak or absent. May include a single undeveloped assertion ("Israel has the right to defend itself because Hamas attacked") without elaboration.
+
+**3 — Justified Opinion**
+A position supported by at least one coherent, developed reason — whether empirical, moral, or experiential. The logic is followable even if not rigorous. May rely on a single line of argument. Personal testimony counts if it is used to support a claim, not just to express feeling.
+Key question: *Does the text build a case, however simple?*
+
+**4 — Reasoned Argument**
+A structured argument that links claims to evidence or reasoning in more than one step. Shows contextual awareness: acknowledges complexity, qualifies claims, references specific events/data/actors, or anticipates an implicit objection. Does not require formal citation — a well-constructed analytical paragraph qualifies.
+
+**5 — Sophisticated Discourse**
+Exceptional deliberative quality. Combines several of: explicit engagement with counter-arguments, citation of specific legal frameworks/sources/empirical data, synthesis of multiple causal or normative dimensions, epistemic humility about uncertainty, or original analytical framing. This is rare in public discourse — reserve it for texts that would be defensible in an academic or high-quality journalistic context.
+
+---
+**SCORING RULES:**
+- Score the **argumentative quality**, not the political position. A sophisticated pro-Israel argument scores the same as a sophisticated pro-Palestinian one with equivalent structure.
+- Score what is **present in the text**, not what you infer the author knows. An expert writing a single slogan scores 1.
+- Emotional language does not penalize a score if it accompanies reasoning. Emotion alone, without reasoning, caps the score at 1.
+- Length does not determine quality. A long repetitive rant scores 2; a single sharp analytical sentence can score 4.
+- When in doubt between two adjacent scores, choose the lower one.
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object. 
+Return a single JSON object.
 Keys:
-- "reasoning_argument_quality_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+- "reasoning_argument_quality_score": A concise explanation (1-2 sentences) identifying the specific textual features that determine the score — reference rubric criteria explicitly.
 - "argument_quality_score": The integer score (0-5).
-Example: 
+
+---
+**EXAMPLES:**
+
+// Score 0 — Spam / Non-Argument
 {{
-    "reasoning_argument_quality_score": "A justified opinion that cites specific factors (water, power, borders) as obstacles to peace. Concise but logical.",
+    "reasoning_argument_quality_score": "The text is garbled, contains no discernible communicative intent, and offers no argument or position that can be evaluated.",
+    "argument_quality_score": 0
+}}
+
+// Score 1 — Pure Reaction
+{{
+    "reasoning_argument_quality_score": "The text expresses strong alignment and uses charged language, but offers no reason, evidence, or developed claim — it is pure stance declaration.",
+    "argument_quality_score": 1
+}}
+
+// Score 2 — Bare Opinion
+{{
+    "reasoning_argument_quality_score": "A clear position is stated and a minimal justification is given (October 7th as trigger event), but the reasoning is a single undeveloped assertion and the rhetorical question substitutes for argument rather than advancing one.",
+    "argument_quality_score": 2
+}}
+
+// Score 3 — Justified Opinion
+{{
+    "reasoning_argument_quality_score": "The text builds a causal argument linking prolonged blockade conditions to radicalization, using a specific timeline (2007, 16 years) to support the claim. The logic is coherent and developed, though it does not engage counter-arguments or cite sources.",
     "argument_quality_score": 3
 }}
+
+// Score 4 — Reasoned Argument
+{{
+    "reasoning_argument_quality_score": "The text applies a specific legal concept (IHL proportionality) correctly, distinguishes it from common misuse, acknowledges a counter-consideration (human shields), and explicitly flags a logical fallacy in public debate — demonstrating multi-step reasoning and contextual sophistication.",
+    "argument_quality_score": 4
+}}
+
+// Score 5 — Sophisticated Discourse
+{{
+    "reasoning_argument_quality_score": "The text demonstrates mastery of the relevant legal doctrine (dolus specialis, ICJ procedure), correctly describes the January ruling, identifies an underappreciated conceptual distinction (legal vs. moral-political registers), and does so with explicit epistemic charity toward both sides — meeting the threshold for sophisticated discourse.",
+    "argument_quality_score": 5
+}}
+
 
 **TEXT TO CLASSIFY:**
 {content}
@@ -344,6 +563,7 @@ Example:
     "reasoning_sentiment_score": "The language expresses deep pessimism and warning ('razed to the ground', 'breeds terrorism'). The tone is fearful and frustrated, falling into the negative to very negative range.",
     "sentiment_score": -0.7
 }}
+
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -747,96 +967,6 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
         return response
     
 ##############################################################
-'''
-async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, 
-                                    batch_save_size, max_concurrent_request,  
-                                    client, model_name, temperature, metadata_file_path, file_lock,
-                                    pilot_mode=None, pilot_size=None, pilot_seed=None): 
-
-    logging.info(f"▶️ STARTING GENERATION of {feature_name.upper()}")
-    mode_msg = f"🧪 PILOT MODE (Max {pilot_size} records)" if pilot_mode else "🚀 PRODUCTION MODE (Full Data)"
-    logging.info(f"MODE: {mode_msg}")
-
-    # 1. PREPARE DATA
-    processed_ids = set()
-    if os.path.exists(feature_file_path):
-        try:
-            df_existing = pl.read_parquet(feature_file_path)
-            processed_ids = set(df_existing['comment_id'].to_list())
-            logging.info(f"🔄 Resume: Found {len(processed_ids)} processed records.")
-        except Exception:
-            pass
-
-    df_to_process = df.filter(~ pl.col('comment_id').is_in(processed_ids))
-    
-    if pilot_mode:
-        if len(df_to_process) > pilot_size:
-            df_to_process = df_to_process.sample(n=pilot_size, seed=pilot_seed)
-    
-    records = df_to_process.to_dicts() 
-    total_records = len(records)
-    
-    if total_records == 0:
-        logging.info("✅ No new records to process. Exiting.")
-        return
-
-    logging.info(f"⏳ Processing {total_records} records with AsyncIO...")
-
-    # 2. CONCURRENCY CONTROL
-    sem = asyncio.Semaphore(max_concurrent_request)
-
-    # 3. BATCH PROCESSING LOOP
-    for i in range(0, total_records, batch_save_size):
-        time.sleep(3)
-        chunk = records[i : i + batch_save_size]
-        
-        tasks = [
-            process_single_row(sem, row, client, feature_name, feature_config, model_name, temperature, metadata_file_path, file_lock)
-            for row in chunk
-        ]
-        
-        logging.info(f"🚀 Launching batch {i} - {min(i+batch_save_size, total_records)}...")
-        
-        results = await tqdm_asyncio.gather(*tasks)
-        
-        # 4. SAVE BATCH
-        if results:
-            df_new_chunk = pl.DataFrame(results)
-            if os.path.exists(feature_file_path):
-                try:
-                    df_current = pl.read_parquet(feature_file_path)
-                    pl.concat([df_current, df_new_chunk]).write_parquet(feature_file_path)
-                except Exception as e:
-                    logging.error(f"❌ Error saving batch: {e}")
-            else:
-                df_new_chunk.write_parquet(feature_file_path)
-
-        # 4. SAVE BATCH
-        if results:
-            df_new_chunk = pl.DataFrame(results)
-            if os.path.exists(feature_file_path):
-                try:
-                    # 1. Read the existing data
-                    df_current = pl.read_parquet(feature_file_path)
-                    
-                    # 2. Combine with the new chunk
-                    df_combined = pl.concat([df_current, df_new_chunk])
-                    
-                    # 3. Write to a temporary file to avoid the memory-map lock (os error 1224)
-                    temp_file_path = f"{feature_file_path}.tmp"
-                    df_combined.write_parquet(temp_file_path)
-                    
-                    # 4. Safely overwrite the original file
-                    os.replace(temp_file_path, feature_file_path)
-                    
-                except Exception as e:
-                    logging.error(f"❌ Error saving batch: {e}")
-            else:
-                # If it's the first batch, just write directly
-                df_new_chunk.write_parquet(feature_file_path)
-
-    logging.info("✅ Async Generation Process Completed.")
-'''
 
 async def run_generation_for_feature(feature_name, feature_file_path, feature_config, df, 
                                     batch_save_size, max_concurrent_request,  

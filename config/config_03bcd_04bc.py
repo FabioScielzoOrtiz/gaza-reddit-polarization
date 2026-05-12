@@ -16,7 +16,7 @@ FEATURE_CONFIG = {
     'content_relevance_score': {
         'func': content_relevance_score,
         'type': 'ordinal', # 0-5
-        'cutoff': 3,       # For binary filtering check
+        'cutoff': 4,       # For binary filtering check
         'validation_threshold': 0.70 # binary accuracy threshold
     },
     'political_stance_score': {

@@ -1,12 +1,6 @@
-SAMPLE_N = 50 # Total target number of samples (Manual + Random)
+VAL_N = 30 # Total target number of samples (Manual + Random)
 SAMPLE_SEED = 123 # Seed for reproducibility
-TRAIN_N = 3 # Number of labeling samples for training (few-shot-llm). Remaining for validation.
 # Add specific comment_ids here to FORCE them into the specific set. Useful for including known edge cases (sarcasm, short text) in the prompt.
-MANUAL_TRAIN_IDS = [ 
-    # 'msmtwuf', 
-    # 'comment_id_X1',
-    # 'comment_id_X2',
-]
 MANUAL_VAL_IDS = [
     # 'msjyrcc',
     # 'comment_id_Y1',
