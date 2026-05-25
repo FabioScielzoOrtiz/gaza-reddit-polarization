@@ -46,13 +46,13 @@ def get_data_for_features_validation_analysis(df_val, val_results, feature_name,
     iter_pred_values_df_wide = pl.DataFrame(iter_pred_values_dict)
     comment_ids = list(iter_pred_values_dict.keys())
     predicted_values = list(iter_pred_values_dict.values())
-    
-    # DataFrame largo con lista de predicciones por comment_id
+    #reasoning_values = val_results['llm_metadata']['iterations_reasoning'].values()
     iter_pred_values_df_long = pl.DataFrame({
         'comment_id': comment_ids, 
-        'predicted_values': predicted_values
-    })
-    
+        'predicted_values': predicted_values, 
+        #'reasoning_values': reasoning_values
+        })
+       
     # --- Lógica Diferenciada por Tipo de Feature ---
     
     if feature_type in ['continuous']:
@@ -200,11 +200,11 @@ def main():
 
         
         logging.info(f"📥 Generating Data for {feature_name.upper()} Validation Analysis")
-        #try: 
-        get_data_for_features_validation_analysis(df_val, val_results, feature_name, feature_type, validation_results_dir)
-        logging.info("✅ Data generated successfully")
-        #except Exception as e:
-        #    logging.info(f"❌ Error generating the data: {e}")
+        try: 
+            get_data_for_features_validation_analysis(df_val, val_results, feature_name, feature_type, validation_results_dir)
+            logging.info("✅ Data generated successfully")
+        except Exception as e:
+            logging.info(f"❌ Error generating the data: {e}")
 
 #################################################################################################
 

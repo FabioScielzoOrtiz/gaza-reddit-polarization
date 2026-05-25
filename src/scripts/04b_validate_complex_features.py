@@ -22,7 +22,6 @@ project_path = os.path.join(script_path, '..', '..')
 sys.path.insert(0, project_path)
 
 labeling_dir = os.path.join(project_path, 'data', 'labeled_samples')
-train_sample_path = os.path.join(labeling_dir, '04a_train_sample.json')
 val_sample_path = os.path.join(labeling_dir, '04a_validatION_sample.json')
 validation_results_dir = os.path.join(project_path, 'data', 'validation_results')
 
@@ -81,7 +80,6 @@ async def main():
     ###########################################################################
     
     # Load Data
-    df_train = load_labeled_sample(train_sample_path)
     df_val = load_labeled_sample(val_sample_path)
 
     ###########################################################################
@@ -90,11 +88,9 @@ async def main():
 
         feature_config = FEATURE_CONFIG.get(feature_name)
 
-        # Usamos await porque run_validation_for_feature ahora es async def
         await run_validation_for_feature(
             feature_name, 
             feature_config, 
-            df_train, 
             df_val, 
             validation_results_dir,
             client, 

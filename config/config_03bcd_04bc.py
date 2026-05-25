@@ -21,13 +21,13 @@ FEATURE_CONFIG = {
     },
     'political_stance_score': {
         'func': political_stance_score,
-        'type': 'ordinal',  # 1-5
-        'validation_threshold': 0.70 # adjacent accuracy threshold
+        'type': 'categorical',  # 1-5, -1
+        'validation_threshold': 0.70 # accuracy threshold
     },
     'argument_quality_score': {
         'func': argument_quality_score,
         'type': 'ordinal',  # 0-5
-        'validation_threshold': 0.70 # adjacent accuracy threshold
+        'validation_threshold': 0.70 # accuracy threshold
     },
     'sentiment_score': {
         'func': sentiment_score,

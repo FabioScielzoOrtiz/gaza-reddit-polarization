@@ -63,6 +63,7 @@ Example:
   "content_relevance_score": 5
 }}
 
+---
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -92,70 +93,167 @@ Example:
 
 async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
                                  content: str = None, return_prompt: bool = False):
+   
+    '''   
+    prompt = f"""
+    You are an expert political analyst working on a research study about the Gaza conflict.
+
+    Your task is to assign a Political Stance Score from 1 (Pro-Palestine) to 5 (Pro-Israel) based on the comment provided.
+
+    The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
+
+    ---
+    **STRICT GUIDELINES:**
+    1. **FOCUS:** Analyze the **Comment Body**. Use Post context only for interpretation.
+    2. **TONE vs STANCE:** Distinguish between aggressive tone and political direction. An aggressive comment can be Pro-Israel (5) or Pro-Palestine (1).
+    3. **NEUTRALITY:** Score 3 is ONLY for truly balanced analysis or unrelated neutral facts. It is the rarest score. A comment does NOT qualify as 3 simply because it avoids strong language or focuses on facts — it must genuinely give comparable weight to BOTH sides. When in doubt between 3 and 1/2, lean toward 1 or 2.
+    4. IRONY & SARCASM: If sarcasm or irony is detected, carefully identify WHO or WHAT is the target of the sarcasm (e.g., is the comment mocking the premise of the Post Title?). Interpret the intended meaning, not the literal one, and note this explicitly in your reasoning to avoid flipping the political stance. 
+    5. **UNCLASSIFIABLE:** If the comment is spam, off-topic (not about the Israel-Palestine/Gaza conflict at all), incoherent, or in a language that prevents reliable interpretation, assign score -1. A comment about Iran–US relations, geopolitics, or military strategy IS classifiable IF it relates to the Gaza/Israel-Palestine context. A comment that only discusses US–Iran military exchanges with no mention of Palestinian/Israeli framing should be scored -1.
+    6. **IMPLICIT STANCE COUNTS:** A comment does not need to use explicit terms like "genocide" or "ethnic cleansing" to score 1. Strong emotional language about Palestinian suffering, attributing systematic harm to Israel, or dismissing Israeli victimhood narratives all point toward 1. Conversely, emphasizing Israeli victimhood or security concerns without equal weight to Palestinian suffering points toward 4–5.
+    7. **DO NOT INFLATE SCORES TOWARD THE CENTER.** If the comment leans even mildly but consistently in one direction, it is 2 or 4, not 3. Reserve 3 only for explicit, symmetric dual-criticism or purely procedural content.
+
+    ---
+    **POLITICAL STANCE SCALE:**
+
+    * **5 — Strongly Pro-Israel:** Explicit support for Israel/IDF actions; justification of military operations; condemning Hamas as the sole aggressor; denying or minimizing Palestinian civilian casualties.
+
+    * **4 — Leaning Pro-Israel:** Primary emphasis on Israeli security rights or victimhood; mild criticism of Palestinian leadership; empathy directed primarily toward Israeli civilians or hostages.
+
+    * **3 — Neutral / Balanced:** Explicit, comparable criticism of BOTH sides OR purely factual/procedural content with zero discernible lean. This is the rarest score — only use it when balance is unambiguous.
+
+    * **2 — Leaning Pro-Palestine:** Focus on humanitarian crisis in Gaza; criticism of Israeli policies or military conduct; primary empathy directed at Palestinian civilians — without using genocide/ethnic cleansing framing as central accusation.
+
+    * **1 — Strongly Pro-Palestine:** Characterization of Israeli actions as genocide, ethnic cleansing, or apartheid as a central accusatory frame; explicit support for Palestinian armed resistance; denial of Israeli civilian harm.
+
+    * **-1 — Unclassifiable:** Spam, off-topic content (unrelated to the Israel-Palestine conflict), incoherent text, or content where political stance cannot be meaningfully inferred. NOTE: A comment about geopolitics, military strategy, or history IS classifiable even if indirect.
+
+    ---
+    **OUTPUT FORMAT:**
+    Return a single JSON object. 
+    Keys:
+    - "reasoning_political_stance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
+    - "political_stance_score": The integer score (1-5, -1) (Must be Int64).
+
+    ---
+    EXAMPLES:
+
+    - Score 1 (Strongly Pro-Palestine):
+    {{
+    "reasoning_political_stance_score": "The comment unequivocally condemns Israel, stating it 'can not exist and the world would be a better place', signaling total rejection of the state. This extreme framing aligns with 'Strongly Pro-Palestine'.",
+    "political_stance_score": 1
+    }}
+
+    - Score 2 (Leaning Pro-Palestine):
+    {{
+    "reasoning_political_stance_score": "The comment expresses concern over media bias regarding the conflict and focuses on instances of Palestinian activists being targeted, implicitly criticizing the treatment of the Palestinian cause.",
+    "political_stance_score": 2
+    }}
+
+    - Score 3 (Neutral / Balanced):
+    {{
+    "reasoning_political_stance_score": "The comment discusses the complex nuances of criticizing Israeli state policy without it equating to antisemitism, while simultaneously acknowledging that calling for Israel's destruction is problematic. It presents a balanced, analytical view of the discourse.",
+    "political_stance_score": 3
+    }}
+
+    - Score 4 (Leaning Pro-Israel):
+    {{
+    "reasoning_political_stance_score": "The comment expresses alienation from progressive marches due to perceived hostility and states a commitment to voting for 'Zionist Democrats', indicating a clear leaning towards pro-Israel views without explicitly justifying military actions.",
+    "political_stance_score": 4
+    }}
+
+    - Score 5 (Strongly Pro-Israel):
+    {{
+    "reasoning_political_stance_score": "The comment fiercely defends Israel's narrative, explicitly denying the occurrence of genocide, and attributes the accusations purely to political agendas and radical movements. This represents a strong alignment with Israeli perspectives.",
+    "political_stance_score": 5
+    }}
+
+    - Score -1 (Unclassifiable):
+    {{
+    "reasoning_political_stance_score": "The comment is a single word ('Thanks') that offers no meaningful content, political stance, or relevance to the conflict.",
+    "political_stance_score": -1
+    }}
+
+    ---
+    **TEXT TO CLASSIFY:**
+    {content}
+    """
+    '''
     prompt = f"""
 You are an expert political analyst working on a research study about the Gaza conflict.
 
 Your task is to assign a Political Stance Score from 1 (Pro-Palestine) to 5 (Pro-Israel) based on the comment provided.
 
+The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
+
 ---
 **STRICT GUIDELINES:**
 1. **FOCUS:** Analyze the **Comment Body**. Use Post context only for interpretation.
-2. **TONE vs STANCE:** Distinguish between aggressive tone and political direction. An aggressive comment can be Pro-Israel (5) or Pro-Palestine (1).
-3. **NEUTRALITY:** Score 3 is ONLY for truly balanced analysis or unrelated neutral facts.
-4. IRONY & SARCASM: If sarcasm or irony is detected, interpret the intended meaning, not the literal one. Note this explicitly in your reasoning.
-5. UNCLASSIFIABLE: If the comment is spam, off-topic, incoherent, or in a language that prevents reliable interpretation, assign score -1.
+2. **REASONING STYLE:** The reasoning must be a very brief, single-sentence statement describing the primary action, emotion, or argument of the comment (e.g., "The comment shows empathy towards Palestine"). Do NOT explicitly name the scale labels or numbers in your reasoning text.
+3. **CONTEXTUAL AGREEMENT (CRITICAL):** If a comment strongly agrees with a "Strongly Pro-Palestine" Post Title (e.g., calling people who deny genocide "ignorant"), it is a 1, NOT a 2 or a 3. The intensity of the agreement inherits the intensity of the Post.
+4. **ANTI-POLARITY FLIP & SARCASM:** Watch out for sarcasm. If a comment uses Pro-Israel talking points mockingly or sarcastically to attack Israel, it is a 1 or 2. If it mocks Pro-Palestine protesters or narratives, it is a 4 or 5. Identify the TRUE TARGET of the aggression.
+5. **TONE vs STANCE:** A very polite, well-written comment that systematically defends Israeli policies, denies genocide, or focuses heavily on the hostages is a 5, not a 4 or 3. Stance is about the ARGUMENT'S DIRECTION, not how polite the user is.
+6. **THE NEUTRALITY TRAP (3 vs 4):** Score 3 is EXCLUSIVE for comments that explicitly attack or defend BOTH sides symmetrically, or are cold, objective recaps of news. If a comment shows even mild skepticism towards Pro-Palestinian movements or justifies military necessity, it is a 4, NOT a 3. 
 
 ---
-**POLITICAL STANCE SCALE (1-5):**
-* 5 — Strongly Pro-Israel: Explicit support for Israel/IDF; justification of military actions; condemning Hamas as the sole aggressor; denying or minimizing Palestinian civilian casualties.
+**POLITICAL STANCE SCALE:**
 
-* 4 — Leaning Pro-Israel: Emphasis on Israeli security rights; empathy primarily for Israeli civilians; mild or indirect criticism of Palestinian leadership or actions.
+* **5 — Strongly Pro-Israel:** Explicit support for Israel/IDF actions; pointing out the diffusion of Palestinian terrorism; emphasizing the need for Israeli military security; mocking pro-Palestinian narratives; or explicitly defending there is no evidence of genocide.
 
-* 3 — Neutral / Balanced: Criticism of both sides with comparable weight; academic or factual reporting without an evident opinion; no clear advocacy for either party.
+* **4 — Leaning Pro-Israel:** Showing some criticism toward Palestinians, Hamas, or Pro-Palestine protests; expressing disagreement with pro-Palestinian policies; presenting nuanced arguments that ultimately place more responsibility on the Palestinian side. 
 
-* 2 — Leaning Pro-Palestine: Focus on humanitarian crisis in Gaza; criticism of Israeli policies or military conduct; primary empathy directed at Palestinian civilians.
+* **3 — Neutral / Balanced:** Explicit, symmetric criticism of BOTH sides OR purely factual/procedural content with zero discernible lean. Do not use this as a "dumping ground" for polite comments.
 
-* 1 — Strongly Pro-Palestine: Characterization of Israeli actions as genocide, ethnic cleansing, or apartheid (used as accusatory framing, not as neutral legal citation); explicit support for Palestinian armed resistance; denial of Israeli civilian harm.
+* **2 — Leaning Pro-Palestine:** Implicit criticism of the media's treatment of Palestine; showing empathy towards Palestine civilians; sarcastic support of the Palestinian cause; pointing out statements by public figures against Palestinians.
 
-* -1 — Unclassifiable: Spam, off-topic content, incoherent text, or language that prevents reliable interpretation.
+* **1 — Strongly Pro-Palestine:** Clear contempt for IDF soldiers; unequivocally standing against Israel (e.g., stating Israel cannot exist); aggressively mocking Israeli narratives; agreeing with claims of Israeli genocide.
+
+* **-1 — Unclassifiable:** Spam, off-topic content, pure meta-reddit comments, isolated personal insults, or content where political stance cannot be meaningfully inferred without guessing.
 
 ---
 **OUTPUT FORMAT:**
 Return a single JSON object. 
 Keys:
-- "reasoning_political_stance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
-- "political_stance_score": The integer score (1-5).
+- "reasoning_political_stance_score": A brief, single-sentence explanation of what the comment expresses or focuses on.
+- "political_stance_score": The integer score (1-5, -1) (Must be Int64).
 
 ---
-EXAMPLES:
+**EXAMPLES:**
 
-- Score 1:
-{
-  "reasoning_political_stance_score": "The comment accuses Israel of conducting ethnic cleansing and frames armed Palestinian resistance as justified self-defense. This aligns with 'Strongly Pro-Palestine'.",
+- Score 1 (Strongly Pro-Palestine):
+{{
+  "reasoning_political_stance_score": "The comment gently insults people who do not see the genocide",
   "political_stance_score": 1
-}
+}}
 
-- Score 3:
-{
-  "reasoning_political_stance_score": "The comment criticizes both Hamas rocket attacks and IDF airstrikes with equal emphasis, without advocating for either side. This qualifies as 'Neutral / Balanced'.",
+- Score 2 (Leaning Pro-Palestine):
+{{
+  "reasoning_political_stance_score": "The comment shows empathy towards Palestine",
+  "political_stance_score": 2
+}}
+
+- Score 3 (Neutral / Balanced):
+{{
+  "reasoning_political_stance_score": "The comment tries to be neutral in the analysis separating politicians from the general situation",
   "political_stance_score": 3
-}
+}}
 
-- Score 5:
-{
-  "reasoning_political_stance_score": "The comment justifies the creation of Israel through historical conquest rights ('technically their land') and frames the partition as 'generous', assigning blame for the conflict solely to Arabs. This is 'Strongly Pro-Israel'.",
+- Score 4 (Leaning Pro-Israel):
+{{
+  "reasoning_political_stance_score": "The comment shows some criticism toward Palestinians and Hamas",
+  "political_stance_score": 4
+}}
+
+- Score 5 (Strongly Pro-Israel):
+{{
+  "reasoning_political_stance_score": "The comment defends there is no evidence of genocide in Palestine",
   "political_stance_score": 5
-}
+}}
 
-- Score -1:
-{
-  "reasoning_political_stance_score": "The comment is off-topic and contains no content related to the conflict. Assigned as 'Unclassifiable'.",
-  "political_stance_score": -1
-}
-
+---
 **TEXT TO CLASSIFY:**
 {content}
 """
+ 
     try:
         response = await client.chat.completions.create(
             model=model_name,
@@ -184,6 +282,8 @@ async def discourse_tone_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-m
 You are an expert linguist analyzing political discourse on Reddit regarding the Gaza conflict.
 
 Your task is to identify the **Dominant Discourse Tone** of the provided comment.
+
+The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
 
 ---
 **CATEGORIES (Choose exactly ONE — see Priority Rule below):**
@@ -219,41 +319,42 @@ Keys:
 **EXAMPLES:**
 
 // Analytical
-{
+{{
   "reasoning_discourse_tone_score": "The user constructs a structured historical argument citing empires and wars to justify a geopolitical position, with no overt emotional language.",
-  "discourse_tone_score": "Analytical"
-}
+  "discourse_tone_score": 1
+}}
 
 // Emotional
-{
+{{
   "reasoning_discourse_tone_score": "The comment centers on the grief of families displaced in Gaza, using language of despair and loss throughout with no analytical framing.",
-  "discourse_tone_score": "Emotional"
-}
+  "discourse_tone_score": 2
+}}
 
 // Hostile
-{
+{{
   "reasoning_discourse_tone_score": "The comment uses dehumanizing language directed at a national group and includes a direct personal attack on another user.",
-  "discourse_tone_score": "Hostile"
-}
+  "discourse_tone_score": 3
+}}
 
 // Sarcastic
-{
+{{
   "reasoning_discourse_tone_score": "The comment sarcastically praises a military decision ('great move, very humane') to ridicule it. The ironic register dominates the entire message.",
-  "discourse_tone_score": "Sarcastic"
-}
+  "discourse_tone_score": 4
+}}
 
 // Informative
-{
+{{
   "reasoning_discourse_tone_score": "The comment shares a Reuters article link with a one-line neutral summary and no editorial opinion or emotional framing.",
-  "discourse_tone_score": "Informative"
-}
+  "discourse_tone_score": 5
+}}
 
 // Other
-{
+{{
   "reasoning_discourse_tone_score": "The comment consists of a single emoji with no accompanying text, making tone classification unreliable.",
-  "discourse_tone_score": "Other"
-}
+  "discourse_tone_score": 6
+}}
 
+---
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -285,6 +386,9 @@ async def dominant_frame_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mi
 You are a media analyst studying framing effects in the Gaza conflict.
 
 Your task is to identify the **Dominant Frame** used in the text. This is the primary "lens" through which the content approaches the issue — not the topic, but the angle, emphasis, and implicit question being answered.
+
+The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
+
 
 ---
 **CATEGORIES (Choose exactly ONE):**
@@ -344,57 +448,58 @@ Keys:
 // 1. Humanitarian
 {{
     "reasoning_dominant_frame_score": "The text foregrounds civilian suffering — child hunger, destroyed hospitals, generational harm — without invoking legal accountability or military logic. The register is emotional and centered on human experience.",
-    "dominant_frame_score": "Humanitarian"
+    "dominant_frame_score": 1
 }}
 
 // 2. Legal/Institutional
 {{
     "reasoning_dominant_frame_score": "The argument is structured around ICJ rulings, the Genocide Convention, and IHL compliance — the central question is legal legitimacy and institutional accountability, not human suffering per se.",
-    "dominant_frame_score": "Legal/Institutional"
+    "dominant_frame_score": 2
 }}
 
 // 3. Security/Military
 {{
     "reasoning_dominant_frame_score": "The text analyzes tunnel infrastructure, IDF tactical options, and the military objective of neutralizing Hamas — the lens is purely strategic, focused on threat assessment and operational effectiveness.",
-    "dominant_frame_score": "Security/Military"
+    "dominant_frame_score": 3
 }}
 
 // 4. Geopolitical/Diplomatic
 {{
     "reasoning_dominant_frame_score": "The text centers on state actors (Qatar, Egypt, US), their strategic interests, and diplomatic leverage — the driving question is what states are doing and why, not domestic politics or military tactics.",
-    "dominant_frame_score": "Geopolitical/Diplomatic"
+    "dominant_frame_score": 4
 }}
 
 // 5. Domestic Politics
 {{
     "reasoning_dominant_frame_score": "The text reads the conflict through the lens of US electoral incentives, donor pressure, and base management — the primary question is domestic political survival, not international diplomacy or military strategy.",
-    "dominant_frame_score": "Domestic Politics"
+    "dominant_frame_score": 5
 }}
 
 // 6. Historical
 {{
     "reasoning_dominant_frame_score": "The argument explicitly roots the present conflict in the Nakba and 1948 displacement, treating historical land rights and foundational events as the essential frame for understanding the current situation.",
-    "dominant_frame_score": "Historical"
+    "dominant_frame_score": 6
 }}
 
 // 7. Religious/Civilizational
 {{
     "reasoning_dominant_frame_score": "The text frames territorial claims through biblical covenant and divine promise, making religious identity and theological obligation — not history or law — the primary justification for the political position.",
-    "dominant_frame_score": "Religious/Civilizational"
+    "dominant_frame_score": 5
 }}
 
 // 8. Media/Narrative
 {{
     "reasoning_dominant_frame_score": "The text is a meta-analysis of media framing itself — comparing outlet language, exposing narrative construction, and arguing that news coverage shapes rather than reflects the conflict. The subject is the discourse, not the events.",
-    "dominant_frame_score": "Media/Narrative"
+    "dominant_frame_score": 8
 }}
 
 // 9. Other
 {{
     "reasoning_dominant_frame_score": "The text expresses vague emotional disengagement without invoking any analytical lens — no legal, military, historical, political, or narrative framework is present. It is genuinely unclassifiable.",
-    "dominant_frame_score": "Other"
+    "dominant_frame_score": 9
 }}
 
+---
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -426,6 +531,8 @@ async def argument_quality_score(client: AsyncOpenAI, model_name: str = "gpt-4o-
 You are an academic researcher evaluating the quality of public deliberation about the Gaza conflict.
 
 Your task is to assign an **Argument Quality Score** from **0 to 5** based on the sophistication, structure, and justification of the text — regardless of the political position it defends.
+
+The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
 
 ---
 **SCORING RUBRIC:**
@@ -503,7 +610,7 @@ Keys:
     "argument_quality_score": 5
 }}
 
-
+---
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -535,35 +642,98 @@ async def sentiment_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", 
 You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse.
 
 Your task is to analyze the **Emotional Valence** of the text regarding the Gaza conflict.
-Assign a continuous **Sentiment Score** from **-1.0** (Very Negative) to **1.0** (Very Positive).
+Assign a continuous **Sentiment Score** from **-1.0** to **1.0** based exclusively on the tone and emotional register of the language — not on the political position expressed or its moral validity.
+
+The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
 
 ---
-**SCORING RUBRIC (GUIDELINES):**
+**SCORING RUBRIC:**
 
-* **-1.0 to -0.7 (Very Negative):** Extreme hostility, hate speech, violent language, insults, or deep despair/trauma.
-* **-0.6 to -0.1 (Negative):** Criticism, cynicism, frustration, sadness, sarcasm, or disagreement.
-* **0.0 (Neutral):** Purely factual statements, objective questions, or balanced observations without emotional loading.
-* **0.1 to 0.6 (Positive):** Empathy, support, hope, agreement, or mild praise.
-* **0.7 to 1.0 (Very Positive):** Strong praise, celebration, deep gratitude, enthusiasm, or relief.
+**-1.0 to -0.7 — Very Negative**
+Extreme emotional intensity in the negative register. Includes: dehumanizing language, hate speech, explicit calls for violence, graphic expressions of rage or contempt, deep trauma or despair with no neutral element. The language itself is the signal,not the severity of the events described.
 
-**CRITICAL DISTINCTION:**
-Do NOT confuse "Political Stance" with "Sentiment".
-- A user can be angry (Negative Sentiment) while supporting a "Good Cause".
-- A user can be hopeful (Positive Sentiment) about a controversial solution.
-- Focus ONLY on the **tone and emotion** of the language used, not the validity of their opinion.
+**-0.6 to -0.4 — Moderately Negative**
+Consistent negative tone without reaching extremity. Includes: sustained criticism, moral condemnation, grief, cynicism, frustration, or sarcasm. The text may be analytical, but the emotional coloring is clearly negative throughout.
+
+**-0.3 to -0.1 — Mildly Negative**
+A slight negative lean, but largely restrained. Includes: measured concern, cautious skepticism, understated disappointment, or factual reporting with a critical undertone. The negativity is present but does not dominate.
+
+**0.0 — Neutral**
+No detectable emotional loading. Purely descriptive or factual statements, objective questions, dry procedural language, or observations that balance opposing emotional signals to net zero. True neutrality is rare — do not default here to avoid judgment.
+
+**0.1 to 0.3 — Mildly Positive**
+A slight positive lean. Includes: understated solidarity, cautious hope, mild praise, or empathetic but measured language. The tone is warmer than neutral but not demonstratively optimistic.
+
+**0.4 to 0.6 — Moderately Positive**
+Consistent positive tone. Includes: clear expressions of support, hope, empathy, encouragement, or agreement. The emotional register is affirmative without reaching celebration or intensity.
+
+**0.7 to 1.0 — Very Positive**
+Strong positive emotional intensity. Includes: celebration, deep gratitude, enthusiasm, relief, fervent expressions of pride or love, or language that is emotionally saturated in the positive direction.
+
+---
+**SCORING RULES:**
+- Score the **tone of the language**, not the content of the claim. A factual description   of atrocities is not automatically Very Negative — a detached clinical report of the same events may score near 0.0.
+- **Sarcasm interpretation.** Ironic praise ("Great job flattening another hospital") should be read at its intended emotional register, not its surface words.
+- **Rhetorical intensity amplifies the score.** Exclamation marks, ALL CAPS, violent metaphors, and accumulation of charged terms all push toward the extremes.
+- **Mixed texts**: identify the dominant emotional register. If genuinely balanced  (e.g., grief + hope in equal measure), score near 0.0 but justify it explicitly — do not use 0.0 as a default.
+- Return scores to **one decimal place** (e.g., -0.7, 0.4, 0.0).
 
 ---
 **OUTPUT FORMAT:**
-Return a single JSON object. 
+Return a single JSON object.
 Keys:
-- "reasoning_sentiment_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
-- "sentiment_score": The integer score (0-5).
-Example: 
+- "reasoning_sentiment_score": A concise explanation (1-2 sentences) identifying the
+  specific lexical or tonal features that determine the score — reference the rubric
+  band explicitly.
+- "sentiment_score": A float between -1.0 and 1.0 (one decimal place).
+
+---
+**EXAMPLES:**
+
+// -1.0 to -0.7 — Very Negative
 {{
-    "reasoning_sentiment_score": "The language expresses deep pessimism and warning ('razed to the ground', 'breeds terrorism'). The tone is fearful and frustrated, falling into the negative to very negative range.",
-    "sentiment_score": -0.7
+    "reasoning_sentiment_score": "Dehumanizing language ('animals'), explicit calls for elimination, and absolute moral contempt with no restraint — the text is saturated with hate and sits at the extreme negative end of the scale.",
+    "sentiment_score": -0.9
 }}
 
+// -0.6 to -0.4 — Moderately Negative
+{{
+    "reasoning_sentiment_score": "Sustained cynicism and moral condemnation run
+    throughout — the sarcastic quote around 'deep concern', the finality of  'learned nothing', and the accumulated grief place this firmly in the moderately negative band.",
+    "sentiment_score": -0.5
+}}
+
+// -0.3 to -0.1 — Mildly Negative
+{{
+    "reasoning_sentiment_score": "The text expresses restrained skepticism and mild disappointment ('hard to feel optimistic', 'history doesn't give much reason') but is measured in tone and includes a faint hope — a slight negative lean without emotional intensity.",
+    "sentiment_score": -0.2
+}}
+
+// 0.0 — Neutral
+{{
+    "reasoning_sentiment_score": "The text is purely procedural and descriptive — no emotionally loaded language, no evaluative framing, no detectable tonal lean in either direction.",
+    "sentiment_score": 0.0
+}}
+
+// 0.1 to 0.3 — Mildly Positive
+{{
+    "reasoning_sentiment_score": "The text acknowledges a positive development with cautious relief ('finally', 'small steps matter'), but immediately qualifies it ('not nearly enough') — the net tone is mildly warm without tipping into optimism.",
+    "sentiment_score": 0.2
+}}
+
+// 0.4 to 0.6 — Moderately Positive
+{{
+    "reasoning_sentiment_score": "The text expresses clear and sustained hope and solidarity ('real hope', 'moral conscience of the world is still alive') with affirmative emotional momentum — a consistently positive register without     reaching celebration.",
+    "sentiment_score": 0.5
+}}
+
+// 0.7 to 1.0 — Very Positive
+{{
+    "reasoning_sentiment_score": "Intense celebratory language, all-caps emphasis,multiple exclamation points, explicit tears of joy, and religious relief expression — the text is emotionally saturated in the positive extreme.",
+    "sentiment_score": 0.9
+}}
+
+---
 **TEXT TO CLASSIFY:**
 {content}
 """
@@ -721,6 +891,8 @@ async def validate_single_row(sem, row, client, feature_name, feature_config,
             
             response_json = json.loads(llm_response)
             predicted_value = response_json.get(feature_name)
+            llm_reasoning = response_json.get(f"reasoning_{feature_name}")
+
 
             # Safety Casting (consistente con el runner de generación)
             if feature_type == 'ordinal':
@@ -737,6 +909,7 @@ async def validate_single_row(sem, row, client, feature_name, feature_config,
                 'comment_id': comment_id,
                 'true_value': true_value,
                 'predicted_value': predicted_value,
+                'reasoning': llm_reasoning,
                 'raw_response': llm_response
             }
 
@@ -747,6 +920,7 @@ async def validate_single_row(sem, row, client, feature_name, feature_config,
                 'comment_id': comment_id,
                 'true_value': true_value,
                 'predicted_value': fallback_val,
+                'reasoning': llm_reasoning,
                 'error': str(e)
             }
 
@@ -809,7 +983,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_val,
     sem = asyncio.Semaphore(max_concurrent_request)
 
     # 2. Bucle de Iteraciones
-    iterations_predicted_values = []
+    iterations_predicted_values, iterations_reasoning = [], []
     for iter_idx in range(n_validation_iterations): 
         logging.info(f"⏳ ITERATION {iter_idx}: Processing {total_records} records in batches of {batch_size}...")
         time.sleep(3)
@@ -837,11 +1011,14 @@ async def run_validation_for_feature(feature_name, feature_config, df_val,
         iterations_predicted_values.append(
             [r['predicted_value'] for r in all_iter_results]
         )
+        iterations_reasoning.append(
+            [r['reasoning'] for r in all_iter_results]
+        )
 
         if feature_type == 'ordinal':
             validation_results['individual_validation']['score_type'] = 'accuracy'
             if feature_name != 'content_relevance_score':
-                score_value = adjacent_accuracy(y_true, y_pred) 
+                score_value = accuracy_score(y_true, y_pred) #adjacent_accuracy(y_true, y_pred) 
                 logging.info(f"  🎯 Iter {iter_idx} - Adj. Acc: {score_value:.2%}")
             else:
                 cutoff = feature_config['cutoff']
@@ -854,7 +1031,7 @@ async def run_validation_for_feature(feature_name, feature_config, df_val,
 
         elif feature_type == 'categorical':
             validation_results['individual_validation']['score_type'] = 'accuracy'
-            score_value = accuracy_score(normalize_str_categories(y_true), normalize_str_categories(y_pred))
+            score_value = accuracy_score(y_true, y_pred)
             logging.info(f"  🎯 Iter {iter_idx} - Accuracy: {score_value:.2%}")
             passed = score_value >= validation_threshold
 
@@ -873,7 +1050,11 @@ async def run_validation_for_feature(feature_name, feature_config, df_val,
         c: [x[c_idx] for x in iterations_predicted_values] 
         for c_idx, c in enumerate(comment_ids)
         }
-
+    validation_results['llm_metadata']['iterations_reasoning'] = {
+        c: [x[c_idx] for x in iterations_reasoning] 
+        for c_idx, c in enumerate(comment_ids)
+        }
+    
     # 5. Lógica de Validación Global
     prob_passed = np.mean(validation_results['individual_validation']['validation_passed'])
     global_passed = prob_passed >= global_validation_threshold
@@ -1298,45 +1479,5 @@ def run_reduce_embedding_dimension(df_raw_embeddings, pca_embeddings_path):
 
     df_embeddings_pca.write_parquet(pca_embeddings_path)
     logging.info(f"✅ Embeddings dimension reduced to {n_pca_components} and saved.")
-
-#################################################################################################
-
-def get_data_for_features_validation_analysis(df_val, val_results, feature_name):
-
-    true_values_df = df_val[['comment_id', feature_name]]
-
-    iter_pred_values_dict = val_results['llm_metadata']['iterations_predicted_values']
-    iter_pred_values_df_wide = pl.DataFrame(iter_pred_values_dict)
-    comment_ids = list(iter_pred_values_dict.keys())
-    predicted_values = list(iter_pred_values_dict.values())
-    iter_pred_values_df_long = pl.DataFrame({'comment_id': comment_ids, 'predicted_values': predicted_values})
-
-    true_predicted_values_df = true_values_df.join(
-        iter_pred_values_df_long, on='comment_id', how='inner'
-    ).with_columns(
-        predicted_values_mean = pl.col('predicted_values').list.mean(),
-        predicted_values_std = pl.col('predicted_values').list.std(),
-        predicted_values_q25 = pl.col('predicted_values').list.eval(pl.element().quantile(0.25)).list.first(),
-        predicted_values_q75 = pl.col('predicted_values').list.eval(pl.element().quantile(0.75)).list.first(),
-        predicted_values_range = 5 - 0 # Theoretical range 
-        # predicted_values_range = pl.col('predicted_values').list.max() - pl.col('predicted_values').list.min() # Observed range
-    ).with_columns(
-        predicted_values_cv_std = (pl.col('predicted_values_std') / pl.col('predicted_values_mean').abs()).fill_nan(None),
-        predicted_values_cv_quantiles = ((pl.col('predicted_values_q75') - pl.col('predicted_values_q25')) / (pl.col('predicted_values_q75') + pl.col('predicted_values_q25'))).fill_nan(None),
-        predicted_values_cv_range = (pl.col('predicted_values_std') / pl.col('predicted_values_range')).fill_nan(None)
-    ).sort(
-        by='predicted_values_mean'
-    )
-
-    df_plot = iter_pred_values_df_wide.unpivot(
-        variable_name="comment_id", 
-        value_name="prediction"
-    ).sort(
-        by='prediction'
-    ).join(true_values_df, on='comment_id', how='inner'
-    ).join(true_predicted_values_df[['comment_id', 'predicted_values_mean', 'predicted_values_std']], on='comment_id', how='inner'
-    )
-
-    return true_predicted_values_df, df_plot
 
 #################################################################################################

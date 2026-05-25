@@ -88,7 +88,6 @@ async def main():
 
         feature_config = FEATURE_CONFIG.get(feature_name)
 
-        # Usamos await porque run_validation_for_feature ahora es async def
         await run_validation_for_feature(
             feature_name, 
             feature_config, 
