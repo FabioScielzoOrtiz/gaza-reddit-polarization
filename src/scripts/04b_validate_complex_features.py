@@ -103,7 +103,7 @@ async def main():
         )
 
         print('Sleeping...')
-        time.sleep(5) # para prevenir saturación entre llamadas
+        time.sleep(2) # para prevenir saturación entre llamadas
 
 #################################################################################################
 

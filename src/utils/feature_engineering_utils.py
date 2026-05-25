@@ -94,90 +94,6 @@ Example:
 async def political_stance_score(client: AsyncOpenAI,  model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
                                  content: str = None, return_prompt: bool = False):
    
-    '''   
-    prompt = f"""
-    You are an expert political analyst working on a research study about the Gaza conflict.
-
-    Your task is to assign a Political Stance Score from 1 (Pro-Palestine) to 5 (Pro-Israel) based on the comment provided.
-
-    The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
-
-    ---
-    **STRICT GUIDELINES:**
-    1. **FOCUS:** Analyze the **Comment Body**. Use Post context only for interpretation.
-    2. **TONE vs STANCE:** Distinguish between aggressive tone and political direction. An aggressive comment can be Pro-Israel (5) or Pro-Palestine (1).
-    3. **NEUTRALITY:** Score 3 is ONLY for truly balanced analysis or unrelated neutral facts. It is the rarest score. A comment does NOT qualify as 3 simply because it avoids strong language or focuses on facts — it must genuinely give comparable weight to BOTH sides. When in doubt between 3 and 1/2, lean toward 1 or 2.
-    4. IRONY & SARCASM: If sarcasm or irony is detected, carefully identify WHO or WHAT is the target of the sarcasm (e.g., is the comment mocking the premise of the Post Title?). Interpret the intended meaning, not the literal one, and note this explicitly in your reasoning to avoid flipping the political stance. 
-    5. **UNCLASSIFIABLE:** If the comment is spam, off-topic (not about the Israel-Palestine/Gaza conflict at all), incoherent, or in a language that prevents reliable interpretation, assign score -1. A comment about Iran–US relations, geopolitics, or military strategy IS classifiable IF it relates to the Gaza/Israel-Palestine context. A comment that only discusses US–Iran military exchanges with no mention of Palestinian/Israeli framing should be scored -1.
-    6. **IMPLICIT STANCE COUNTS:** A comment does not need to use explicit terms like "genocide" or "ethnic cleansing" to score 1. Strong emotional language about Palestinian suffering, attributing systematic harm to Israel, or dismissing Israeli victimhood narratives all point toward 1. Conversely, emphasizing Israeli victimhood or security concerns without equal weight to Palestinian suffering points toward 4–5.
-    7. **DO NOT INFLATE SCORES TOWARD THE CENTER.** If the comment leans even mildly but consistently in one direction, it is 2 or 4, not 3. Reserve 3 only for explicit, symmetric dual-criticism or purely procedural content.
-
-    ---
-    **POLITICAL STANCE SCALE:**
-
-    * **5 — Strongly Pro-Israel:** Explicit support for Israel/IDF actions; justification of military operations; condemning Hamas as the sole aggressor; denying or minimizing Palestinian civilian casualties.
-
-    * **4 — Leaning Pro-Israel:** Primary emphasis on Israeli security rights or victimhood; mild criticism of Palestinian leadership; empathy directed primarily toward Israeli civilians or hostages.
-
-    * **3 — Neutral / Balanced:** Explicit, comparable criticism of BOTH sides OR purely factual/procedural content with zero discernible lean. This is the rarest score — only use it when balance is unambiguous.
-
-    * **2 — Leaning Pro-Palestine:** Focus on humanitarian crisis in Gaza; criticism of Israeli policies or military conduct; primary empathy directed at Palestinian civilians — without using genocide/ethnic cleansing framing as central accusation.
-
-    * **1 — Strongly Pro-Palestine:** Characterization of Israeli actions as genocide, ethnic cleansing, or apartheid as a central accusatory frame; explicit support for Palestinian armed resistance; denial of Israeli civilian harm.
-
-    * **-1 — Unclassifiable:** Spam, off-topic content (unrelated to the Israel-Palestine conflict), incoherent text, or content where political stance cannot be meaningfully inferred. NOTE: A comment about geopolitics, military strategy, or history IS classifiable even if indirect.
-
-    ---
-    **OUTPUT FORMAT:**
-    Return a single JSON object. 
-    Keys:
-    - "reasoning_political_stance_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
-    - "political_stance_score": The integer score (1-5, -1) (Must be Int64).
-
-    ---
-    EXAMPLES:
-
-    - Score 1 (Strongly Pro-Palestine):
-    {{
-    "reasoning_political_stance_score": "The comment unequivocally condemns Israel, stating it 'can not exist and the world would be a better place', signaling total rejection of the state. This extreme framing aligns with 'Strongly Pro-Palestine'.",
-    "political_stance_score": 1
-    }}
-
-    - Score 2 (Leaning Pro-Palestine):
-    {{
-    "reasoning_political_stance_score": "The comment expresses concern over media bias regarding the conflict and focuses on instances of Palestinian activists being targeted, implicitly criticizing the treatment of the Palestinian cause.",
-    "political_stance_score": 2
-    }}
-
-    - Score 3 (Neutral / Balanced):
-    {{
-    "reasoning_political_stance_score": "The comment discusses the complex nuances of criticizing Israeli state policy without it equating to antisemitism, while simultaneously acknowledging that calling for Israel's destruction is problematic. It presents a balanced, analytical view of the discourse.",
-    "political_stance_score": 3
-    }}
-
-    - Score 4 (Leaning Pro-Israel):
-    {{
-    "reasoning_political_stance_score": "The comment expresses alienation from progressive marches due to perceived hostility and states a commitment to voting for 'Zionist Democrats', indicating a clear leaning towards pro-Israel views without explicitly justifying military actions.",
-    "political_stance_score": 4
-    }}
-
-    - Score 5 (Strongly Pro-Israel):
-    {{
-    "reasoning_political_stance_score": "The comment fiercely defends Israel's narrative, explicitly denying the occurrence of genocide, and attributes the accusations purely to political agendas and radical movements. This represents a strong alignment with Israeli perspectives.",
-    "political_stance_score": 5
-    }}
-
-    - Score -1 (Unclassifiable):
-    {{
-    "reasoning_political_stance_score": "The comment is a single word ('Thanks') that offers no meaningful content, political stance, or relevance to the conflict.",
-    "political_stance_score": -1
-    }}
-
-    ---
-    **TEXT TO CLASSIFY:**
-    {content}
-    """
-    '''
     prompt = f"""
 You are an expert political analyst working on a research study about the Gaza conflict.
 
@@ -190,9 +106,13 @@ The metric should be measured based on the "comment_body", which is the unit of 
 1. **FOCUS:** Analyze the **Comment Body**. Use Post context only for interpretation.
 2. **REASONING STYLE:** The reasoning must be a very brief, single-sentence statement describing the primary action, emotion, or argument of the comment (e.g., "The comment shows empathy towards Palestine"). Do NOT explicitly name the scale labels or numbers in your reasoning text.
 3. **CONTEXTUAL AGREEMENT (CRITICAL):** If a comment strongly agrees with a "Strongly Pro-Palestine" Post Title (e.g., calling people who deny genocide "ignorant"), it is a 1, NOT a 2 or a 3. The intensity of the agreement inherits the intensity of the Post.
-4. **ANTI-POLARITY FLIP & SARCASM:** Watch out for sarcasm. If a comment uses Pro-Israel talking points mockingly or sarcastically to attack Israel, it is a 1 or 2. If it mocks Pro-Palestine protesters or narratives, it is a 4 or 5. Identify the TRUE TARGET of the aggression.
+4. **ANTI-POLARITY FLIP, SARCASM & MOCKING (CRITICAL):** Watch out for sarcasm and laughter (e.g., "Hahaha", "Lol"). 
+   - If a comment mocks or laughs at a Pro-Israel post title/news to DEFEND a Palestinian slogan (e.g., arguing that 'Free Palestine' just means freedom, not violence), it is a 1 or 2. 
+   - If it mocks, mimics, or laughs at Pro-Palestine protesters, slogans, or narratives to invalidate them, it is a 4 or 5. 
+   - ALWAYS identify the *ultimate target* of the mockery. Laughing at an anti-Palestinian narrative is a Pro-Palestine action, and vice-versa.
 5. **TONE vs STANCE:** A very polite, well-written comment that systematically defends Israeli policies, denies genocide, or focuses heavily on the hostages is a 5, not a 4 or 3. Stance is about the ARGUMENT'S DIRECTION, not how polite the user is.
 6. **THE NEUTRALITY TRAP (3 vs 4):** Score 3 is EXCLUSIVE for comments that explicitly attack or defend BOTH sides symmetrically, or are cold, objective recaps of news. If a comment shows even mild skepticism towards Pro-Palestinian movements or justifies military necessity, it is a 4, NOT a 3. 
+7. **THE UNCLASSIFIABLE GUARDRAIL (-1 vs 1-5 - CRITICAL):** You MUST assign -1 if the comment discusses macro-regional geopolitics, military logistics, or economic strategy (e.g., Iran's strategy in the Gulf, US military movements, oil refineries) without expressing an explicit evaluative political stance on the Gaza conflict itself. **Merely mentioning the word "Israel" or "US" as part of a list of regional targets or actors does NOT justify a 1-5 score.** If the text is purely academic, technical, or focused on other countries (like Iran, UAE, Saudi Arabia) rather than the Israeli-Palestinian dynamic, it is strictly a -1.
 
 ---
 **POLITICAL STANCE SCALE:**
@@ -207,17 +127,23 @@ The metric should be measured based on the "comment_body", which is the unit of 
 
 * **1 — Strongly Pro-Palestine:** Clear contempt for IDF soldiers; unequivocally standing against Israel (e.g., stating Israel cannot exist); aggressively mocking Israeli narratives; agreeing with claims of Israeli genocide.
 
-* **-1 — Unclassifiable:** Spam, off-topic content, pure meta-reddit comments, isolated personal insults, or content where political stance cannot be meaningfully inferred without guessing.
+* **-1 — Unclassifiable:** Spam, off-topic content, generic technical/legal questions, pure meta-reddit comments, isolated personal insults, or content where a political stance on the Gaza conflict itself cannot be meaningfully inferred without guessing.
 
 ---
 **OUTPUT FORMAT:**
 Return a single JSON object. 
 Keys:
 - "reasoning_political_stance_score": A brief, single-sentence explanation of what the comment expresses or focuses on.
-- "political_stance_score": The integer score (1-5, -1) (Must be Int64).
+- "political_stance_score": The integer score (1-5, -1).
 
 ---
 **EXAMPLES:**
+
+- Score -1 (Unclassifiable):
+{{
+  "reasoning_political_stance_score": "The comment asks a generic technical question about an international incident without expressing a stance on the Gaza conflict",
+  "political_stance_score": -1
+}}
 
 - Score 1 (Strongly Pro-Palestine):
 {{
@@ -301,54 +227,65 @@ The metric should be measured based on the "comment_body", which is the unit of 
 6. Other: Use ONLY for content that genuinely resists classification: very short reactions (e.g. "lol", "+1", single emojis), fully off-topic comments, or incoherent text. Explain why in the reasoning field.
 
 ---
-**PRIORITY RULE (for mixed-tone comments):**
-When multiple tones are present, apply this hierarchy — assign the category highest on the list that is clearly dominant:
+**HOW TO DETERMINE THE DOMINANT TONE (THE 2-STEP RULE):**
 
-  Hostile > Sarcastic > Emotional > Analytical > Informative > Other
+When a comment exhibits features of multiple categories, you MUST follow these two steps in order:
 
-A tone is "clearly dominant" if it characterizes the overall register of the comment, not just one phrase.
+**STEP 1: Quantitative & Register Dominance (Volume & Focus)**
+Identify which tone characterizes the vast majority of the text's volume, core argument, and structural intent. 
+- If a comment spends 80% of its length building a logical, data-driven, or geographical case (Analytical) but ends with a single mocking punchline or insult (Sarcastic/Hostile), the dominant tone is **Analytical (1)**. The single phrase does NOT hijack the overall register.
+- If a comment is short but its primary purpose is to deliver an insult or a sarcastic joke, then that tone is dominant.
 
+**STEP 2: Tie-Breaking Hierarchy (Only for truly equal 50/50 splits)**
+ONLY if two or more tones are equally balanced in weight, volume, and importance throughout the text, apply this strict tie-breaking hierarchy — assign the category highest on this list:
+
+  Hostile (3) > Sarcastic (4) > Emotional (2) > Analytical (1) > Informative (5) > Other (6)
+  
 ---
 **OUTPUT FORMAT:**
 Return a single JSON object. 
 Keys:
 - "reasoning_discourse_tone_score": A concise explanation (1-2 sentences) linking the text to specific scale criteria.
-- "discourse_tone_score": The exact category name from the list above.
+- "discourse_tone_score": The integer score (1-6).
 
 ---
 **EXAMPLES:**
 
-// Analytical
+// Score 1 - Analytical
 {{
   "reasoning_discourse_tone_score": "The user constructs a structured historical argument citing empires and wars to justify a geopolitical position, with no overt emotional language.",
   "discourse_tone_score": 1
 }}
 
-// Emotional
+// Score 2 - Emotional
 {{
   "reasoning_discourse_tone_score": "The comment centers on the grief of families displaced in Gaza, using language of despair and loss throughout with no analytical framing.",
   "discourse_tone_score": 2
 }}
 
-// Hostile
+// Score 3 - Hostile
 {{
   "reasoning_discourse_tone_score": "The comment uses dehumanizing language directed at a national group and includes a direct personal attack on another user.",
   "discourse_tone_score": 3
 }}
 
-// Sarcastic
+// Score 4 - Sarcastic
 {{
   "reasoning_discourse_tone_score": "The comment sarcastically praises a military decision ('great move, very humane') to ridicule it. The ironic register dominates the entire message.",
   "discourse_tone_score": 4
 }}
+{{
+  "reasoning_discourse_tone_score": "The comment uses an absurd, logically impossible personal anecdote involving a celebrity to mock the post's thesis. This weaponized irony makes the sarcastic register completely dominant.",
+  "discourse_tone_score": 4
+}}
 
-// Informative
+// Score 5 - Informative
 {{
   "reasoning_discourse_tone_score": "The comment shares a Reuters article link with a one-line neutral summary and no editorial opinion or emotional framing.",
   "discourse_tone_score": 5
 }}
 
-// Other
+// Score 6 - Other
 {{
   "reasoning_discourse_tone_score": "The comment consists of a single emoji with no accompanying text, making tone classification unreliable.",
   "discourse_tone_score": 6
@@ -440,7 +377,7 @@ The metric should be measured based on the "comment_body", which is the unit of 
 Return a single JSON object.
 Keys:
 - "reasoning_dominant_frame_score": A concise explanation (1-2 sentences) linking specific textual signals to the chosen category's core question.
-- "dominant_frame_score": The exact category name from the list above.
+- "dominant_frame_score": The integer score (1-9).
 
 ---
 **Example outputs:**
@@ -563,6 +500,8 @@ Exceptional deliberative quality. Combines several of: explicit engagement with 
 - Emotional language does not penalize a score if it accompanies reasoning. Emotion alone, without reasoning, caps the score at 1.
 - Length does not determine quality. A long repetitive rant scores 2; a single sharp analytical sentence can score 4.
 - When in doubt between two adjacent scores, choose the lower one.
+- **EMOTIONAL LANGUAGE DOES NOT EQUAL PURE REACTION (CRITICAL):** Do not penalize a comment or cap it at 1 just because it uses high-intensity emotional words (e.g., "starving", "horrors", "sickening"). If the emotional text establishes a causal mechanism (e.g., "X horror is happening now, therefore Y future outcome is impossible") or provides a baseline reason for a stance, it MUST be scored as **2 (Bare Opinion)** or **3 (Justified Opinion)**. Emotion *accompanied* by a logical link or implication is a valid form of public deliberation.
+- **LOGICAL BREVITY & IMPLICIT ARGUMENTS:** Redditors often use short, dense statements or rhetorical questions to convey a complete logical point (e.g., a firsthand personal experience that invalidates a post's premise, or an unbacked empirical example). If a human reader can map a clear "Premise -> Conclusion" link from the text without guessing the user's mind, score it based on that logical structure (2 or 3), not on its length or lack of academic jargon.
 
 ---
 **OUTPUT FORMAT:**
@@ -639,7 +578,7 @@ Keys:
 async def sentiment_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
                           content: str = None, return_prompt: bool = False):
     prompt = f"""
-You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse.
+You are an expert in Natural Language Processing (NLP) specializing in sentiment analysis of political discourse on social media.
 
 Your task is to analyze the **Emotional Valence** of the text regarding the Gaza conflict.
 Assign a continuous **Sentiment Score** from **-1.0** to **1.0** based exclusively on the tone and emotional register of the language — not on the political position expressed or its moral validity.
@@ -650,87 +589,74 @@ The metric should be measured based on the "comment_body", which is the unit of 
 **SCORING RUBRIC:**
 
 **-1.0 to -0.7 — Very Negative**
-Extreme emotional intensity in the negative register. Includes: dehumanizing language, hate speech, explicit calls for violence, graphic expressions of rage or contempt, deep trauma or despair with no neutral element. The language itself is the signal,not the severity of the events described.
+Extreme emotional intensity in the negative register. Includes: dehumanizing language, hate speech, explicit calls for violence/destruction, graphic expressions of rage, unmitigated contempt, or deep trauma/despair directed outwards or inwards without any element of communal solidarity.
 
 **-0.6 to -0.4 — Moderately Negative**
-Consistent negative tone without reaching extremity. Includes: sustained criticism, moral condemnation, grief, cynicism, frustration, or sarcasm. The text may be analytical, but the emotional coloring is clearly negative throughout.
+Consistent negative tone without reaching extremity. Includes: sustained criticism, moral condemnation, cynical commentary, frustration, or sarcasm. The text may be analytical, but the emotional coloring is clearly critical or negative throughout.
 
 **-0.3 to -0.1 — Mildly Negative**
-A slight negative lean, but largely restrained. Includes: measured concern, cautious skepticism, understated disappointment, or factual reporting with a critical undertone. The negativity is present but does not dominate.
+A slight negative lean, but largely restrained. Includes: measured concern, cautious skepticism, pure empathetic grief (condolences), understated disappointment, or factual reporting with a critical undertone.
 
 **0.0 — Neutral**
-No detectable emotional loading. Purely descriptive or factual statements, objective questions, dry procedural language, or observations that balance opposing emotional signals to net zero. True neutrality is rare — do not default here to avoid judgment.
+No detectable emotional loading. Purely descriptive or factual statements, objective questions, dry technical/military evaluations, or observations that balance opposing emotional signals to net zero.
 
 **0.1 to 0.3 — Mildly Positive**
 A slight positive lean. Includes: understated solidarity, cautious hope, mild praise, or empathetic but measured language. The tone is warmer than neutral but not demonstratively optimistic.
 
 **0.4 to 0.6 — Moderately Positive**
-Consistent positive tone. Includes: clear expressions of support, hope, empathy, encouragement, or agreement. The emotional register is affirmative without reaching celebration or intensity.
+Consistent positive tone. Includes: clear expressions of support, hope, encouragement, or agreement. The emotional register is affirmative without reaching intense celebration or deep collective catharsis.
 
 **0.7 to 1.0 — Very Positive**
-Strong positive emotional intensity. Includes: celebration, deep gratitude, enthusiasm, relief, fervent expressions of pride or love, or language that is emotionally saturated in the positive direction.
+Strong positive emotional intensity. Includes: intense celebration, deep gratitude, fervent expressions of pride, love, or relief, and highly solemn vows of communal solidarity or defense of memory. The text is emotionally saturated in the positive or supportive direction.
 
 ---
-**SCORING RULES:**
-- Score the **tone of the language**, not the content of the claim. A factual description   of atrocities is not automatically Very Negative — a detached clinical report of the same events may score near 0.0.
-- **Sarcasm interpretation.** Ironic praise ("Great job flattening another hospital") should be read at its intended emotional register, not its surface words.
-- **Rhetorical intensity amplifies the score.** Exclamation marks, ALL CAPS, violent metaphors, and accumulation of charged terms all push toward the extremes.
-- **Mixed texts**: identify the dominant emotional register. If genuinely balanced  (e.g., grief + hope in equal measure), score near 0.0 but justify it explicitly — do not use 0.0 as a default.
-- Return scores to **one decimal place** (e.g., -0.7, 0.4, 0.0).
+**SCORING RULES (CRITICAL NLP GUARDRAILS):**
+
+- **The "In-Group Solidarity vs. Out-Group Hate" Principle:** Do not mistake fierce communal alignment, solidarity, or protective vows for negative rage. Mantras of memory and absolute resolve like "Never forget and never forgive" or "Am Yisrael Chai" when posted in reaction to a victim's testimony represent maximum positive alignment, conviction, and solemn group support **(0.7 to 1.0)**. They are expressions of protective unity, not unmitigated negative hate.
+- **The "Tribute Effect" (Commemorative Grief):** In texts celebrating positive communal milestones (e.g., hostages returning), the mention of crying for those lost or honoring the dead does NOT reduce or penalize the positive score. Commemorative grief increases the solemnity and emotional saturation of the support. If the text uses highly elevated positive terms ("beyond ecstatic") alongside mourning for the group's losses, score it at the extreme positive end **(0.7 to 1.0)**.
+- **The "Empathetic Grief" Trap (Negative vs. Positive):** Do not confuse pro-social intent with positive emotional valence. Expressions of pure sorrow, condolences, and empathy for victims (e.g., "This is heartbreaking," "My condolences") represent the emotion of grief and sadness. Even though the intent is supportive, the emotional register is intrinsically negative. Score pure empathetic grief in the negative band **(-0.1 to -0.3)**, NOT in the positive band.
+- **Technical Praise vs. Emotional Positivity:** Do not confuse the technical evaluation of military/institutional performance with emotional positivity. Phrases like "exceptional air defense" or "strategic win" are often part of a dry, analytical assessment of security, not expressions of joy or warmth. If the text primarily evaluates tactics or strategic effectiveness without clear emotional language, score it closer to **Neutral (0.0)** or slightly negative if it emphasizes vulnerabilities.
+- **Score the tone, not the content.** A factual description of atrocities is not automatically Very Negative — a detached clinical report may score near 0.0.
+- Return scores to **one decimal place** (e.g., -0.7, 0.4, 0.0, 1.0).
 
 ---
 **OUTPUT FORMAT:**
 Return a single JSON object.
 Keys:
-- "reasoning_sentiment_score": A concise explanation (1-2 sentences) identifying the
-  specific lexical or tonal features that determine the score — reference the rubric
-  band explicitly.
+- "reasoning_sentiment_score": A concise explanation (1-2 sentences) identifying the specific lexical features and applying the Guardrails to justify the score band.
 - "sentiment_score": A float between -1.0 and 1.0 (one decimal place).
 
 ---
 **EXAMPLES:**
 
-// -1.0 to -0.7 — Very Negative
+- 1.0 to -0.7 — Very Negative
 {{
-    "reasoning_sentiment_score": "Dehumanizing language ('animals'), explicit calls for elimination, and absolute moral contempt with no restraint — the text is saturated with hate and sits at the extreme negative end of the scale.",
+    "reasoning_sentiment_score": "Dehumanizing language and absolute moral contempt with no restraint — the text is saturated with unmitigated hate and sits at the extreme negative end.",
     "sentiment_score": -0.9
 }}
 
-// -0.6 to -0.4 — Moderately Negative
+- -0.3 to -0.1 — Mildly Negative (Empathetic Grief)
 {{
-    "reasoning_sentiment_score": "Sustained cynicism and moral condemnation run
-    throughout — the sarcastic quote around 'deep concern', the finality of  'learned nothing', and the accumulated grief place this firmly in the moderately negative band.",
-    "sentiment_score": -0.5
+    "reasoning_sentiment_score": "The text expresses deep empathy and offers condolences ('this is heartbreaking'). Under the Empathetic Grief rule, pure sorrow and mourning constitute a restrained negative emotional valence, despite the pro-social intent.",
+    "sentiment_score": -0.1
 }}
 
-// -0.3 to -0.1 — Mildly Negative
+- 0.0 — Neutral (Technical Praise)
 {{
-    "reasoning_sentiment_score": "The text expresses restrained skepticism and mild disappointment ('hard to feel optimistic', 'history doesn't give much reason') but is measured in tone and includes a faint hope — a slight negative lean without emotional intensity.",
-    "sentiment_score": -0.2
-}}
-
-// 0.0 — Neutral
-{{
-    "reasoning_sentiment_score": "The text is purely procedural and descriptive — no emotionally loaded language, no evaluative framing, no detectable tonal lean in either direction.",
+    "reasoning_sentiment_score": "The comment analytically praises military interception rates ('exceptional air defense') but focuses on costs and tactical limitations. This is a dry technical evaluation lacking true emotional positivity, netting a neutral score.",
     "sentiment_score": 0.0
 }}
 
-// 0.1 to 0.3 — Mildly Positive
+- 0.7 to 1.0 — Very Positive (Solidarity & Resolve)
 {{
-    "reasoning_sentiment_score": "The text acknowledges a positive development with cautious relief ('finally', 'small steps matter'), but immediately qualifies it ('not nearly enough') — the net tone is mildly warm without tipping into optimism.",
-    "sentiment_score": 0.2
+    "reasoning_sentiment_score": "The text uses emphatic mantras of memory ('Never forget and never forgive') as a solemn vow of communal solidarity and fierce defensive alignment, placing it in the extreme positive support band.",
+    "sentiment_score": 0.8
 }}
 
-// 0.4 to 0.6 — Moderately Positive
+- 0.7 to 1.0 — Very Positive (Tribute Effect)
 {{
-    "reasoning_sentiment_score": "The text expresses clear and sustained hope and solidarity ('real hope', 'moral conscience of the world is still alive') with affirmative emotional momentum — a consistently positive register without     reaching celebration.",
-    "sentiment_score": 0.5
-}}
-
-// 0.7 to 1.0 — Very Positive
-{{
-    "reasoning_sentiment_score": "Intense celebratory language, all-caps emphasis,multiple exclamation points, explicit tears of joy, and religious relief expression — the text is emotionally saturated in the positive extreme.",
-    "sentiment_score": 0.9
+    "reasoning_sentiment_score": "The text combines intense celebratory terms ('beyond ecstatic', 'glorious day') with commemorative grief for the fallen. Under the Tribute Effect, this mourning amplifies the emotional saturation of group solidarity rather than penalizing it.",
+    "sentiment_score": 1.0
 }}
 
 ---

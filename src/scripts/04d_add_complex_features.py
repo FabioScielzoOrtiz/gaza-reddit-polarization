@@ -25,6 +25,10 @@ processed_data_dir = os.path.join(project_path, 'data', 'processed_data')
 base_data_path = os.path.join(processed_data_dir, '03d_processed_data.parquet')
 processed_data_path = os.path.join(processed_data_dir, '04d_processed_data.parquet')
 
+from config.config_03bcd_04bc import (
+    FEATURE_CONFIG
+)
+
 #################################################################################################
 
 # --- MAIN EXECUTION ---
@@ -38,7 +42,8 @@ def main():
         if feature_name != 'content_relevance_score' and extension == '.parquet':
             feature_path = os.path.join(features_dir, filename)
             feature_df = pl.read_parquet(feature_path)
-            feature_df = feature_df[['comment_id', feature_name]]
+            feature_type = FEATURE_CONFIG[feature_name]['type']
+            feature_df = feature_df.with_columns(pl.col(feature_name).cast(pl.Int64)) if feature_type in ['categorical', 'ordinal'] else feature_df.with_columns(pl.col(feature_name).cast(pl.Float64))
             df = df.join(feature_df, how='left', on='comment_id')
 
     df.write_parquet(processed_data_path)

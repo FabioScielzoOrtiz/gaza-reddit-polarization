@@ -37,6 +37,7 @@ def main():
 
     df = pl.read_parquet(base_data_path)
     feature_df = pl.read_parquet(feature_file_path)
+    feature_df = feature_df.with_columns(pl.col(FEATURE_NAME).cast(pl.Int64))  
     processed_df = df.join(feature_df, how='left', on='comment_id')
     processed_df = processed_df.filter(pl.col(FEATURE_NAME) >= RELEVANCE_CUTOFF)
     processed_df.write_parquet(processed_data_path)
