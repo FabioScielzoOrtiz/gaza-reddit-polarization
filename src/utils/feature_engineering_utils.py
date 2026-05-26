@@ -324,8 +324,7 @@ You are a media analyst studying framing effects in the Gaza conflict.
 
 Your task is to identify the **Dominant Frame** used in the text. This is the primary "lens" through which the content approaches the issue — not the topic, but the angle, emphasis, and implicit question being answered.
 
-The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
-
+The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". Classify based on the comment_body alone — the post context provides background but should not override the frame of the comment itself.
 
 ---
 **CATEGORIES (Choose exactly ONE):**
@@ -333,43 +332,57 @@ The metric should be measured based on the "comment_body", which is the unit of 
 1. **Humanitarian**
    Core question: *"What is happening to people?"*
    Signals: civilian casualties, displacement, famine, hospitals, grief, aid delivery, suffering of non-combatants. The focus is on human experience and loss, without requiring a legal or accountability framework.
+   ⚠️ NOT Humanitarian if: the text mentions civilian harm primarily to evaluate military proportionality, justify or critique an operation, or assess tactical effectiveness. If suffering appears as a byproduct of a strategic argument, classify as Security/Military.
+   ⚠️ NOT Humanitarian if: the comment is a pure emotional reaction without explicitly referencing human suffering or civilian experience as the argumentative core. Classify as Other instead.
 
-2. **Legal/Institutional**
+2. **Legal**
    Core question: *"Is this legal or legitimate under international norms?"*
    Signals: ICJ rulings, ICC proceedings, Geneva Conventions, UN resolutions, war crimes accusations, genocide as a legal term, international humanitarian law (IHL), accountability mechanisms.
+   📌 The term "genocide" alone does not activate this frame. It does so only when the argument revolves around its legal definition, evidentiary standards, institutional recognition, or formal accountability. Arguments that deny or invert a legal accusation also activate this frame — e.g. "this does not meet the threshold for genocide", "Hamas is the one with genocidal intent".
+   📌 A comment may use political language ("political lie", "agenda") to characterize a legal claim without that making it Geopolitical. If the core argument is about whether an action meets a legal or normative standard, classify as Legal.
+   🔑 KEY DISTINCTION from Security/Military: Legal asks "Is this action lawful?" Security/Military asks "Is this action strategically justified?"
+   🔑 KEY DISTINCTION from Media/Narrative: Legal challenges the factual or legal basis of a claim. Media/Narrative challenges how a claim is being constructed and circulated.
 
 3. **Security/Military**
    Core question: *"Who is the threat and how should it be countered?"*
    Signals: IDF strategy and operations, Hamas military capabilities, hostage situations, tunnel infrastructure, terrorism framing, right to self-defense, military objectives and proportionality in tactical terms.
+   ⚠️ NOT Security/Military if: the text centers on grief, loss, or civilian experience as ends in themselves — with no strategic or operational argument. Mentioning combatants, hostages, or military operations does not make a text Security/Military if the emotional and argumentative register is humanitarian or purely expressive.
+   🔑 KEY DISTINCTION from Humanitarian: Ask "Is the author making a point about military logic, or about human suffering?" If the former → Security/Military. If the latter → Humanitarian.
 
-4. **Geopolitical/Diplomatic**
-   Core question: *"What are states doing and why?"*
-   Signals: international alliances, US/Iran/Egypt/Qatar roles, UNSC vetoes, diplomatic pressure, ceasefire negotiations, arms supply decisions, normalization agreements (Abraham Accords), regional power dynamics.
+4. **Historical/Identity**
+   Core question: *"What does history, faith, or identity tell us about who is right?"*
+   Signals: Nakba, British Mandate, 1948/1967 wars, settlement history, land rights claims, origins of the conflict, Palestinian displacement history, biblical or Quranic justifications, "Promised Land," Jewish/Islamic identity as the primary analytical lens, divine mandate or destiny framing.
+   📌 Use when the argument is grounded in historical facts or identity — rather than in present events, institutions, or strategy.
 
-5. **Domestic Politics**
-   Core question: *"How does this affect a country's internal politics?"*
-   Signals: electoral incentives, governing coalitions, parliamentary debates, public opinion pressure, political survival of leaders (Netanyahu's coalition, Biden's base), campus protests as domestic political events — without primary focus on international diplomacy.
-
-6. **Historical**
-   Core question: *"What does the past tell us about who is right?"*
-   Signals: Nakba, British Mandate, 1948/1967 wars, settlement history, land rights claims, origins of the conflict, Palestinian displacement history, foundational political events.
-
-7. **Religious/Civilizational**
-   Core question: *"What do faith or civilizational identity say about this conflict?"*
-   Signals: biblical or Quranic justifications, "Promised Land," jihad, clash of civilizations, Jewish/Islamic identity as the primary analytical lens, divine mandate or destiny framing.
-
-8. **Media/Narrative**
+5. **Media/Narrative**
    Core question: *"How is this story being told, and who controls the narrative?"*
    Signals: media bias accusations, propaganda, disinformation, hasbara, coverage framing (CNN/BBC/Al Jazeera comparisons), discourse control, debates over which narrative dominates the public sphere.
+   ⚠️ NOT Media/Narrative if: the text simply expresses a political or humanitarian opinion — even forcefully. The frame requires the text to be about the *representation* of the conflict, not the conflict itself.
 
-9. **Other**
-   Use only when the text is genuinely unclassifiable — i.e., it does not meaningfully invoke any of the above frames. This is a residual category, not an analytical frame.
+6. **Geopolitical**
+   Core question: *"What are political actors doing and why?"*
+   Signals: international alliances, US/Iran/Egypt/Qatar roles, UNSC vetoes, diplomatic pressure, ceasefire negotiations, arms supply decisions, electoral incentives, governing coalitions, parliamentary debates, public opinion pressure, political survival of leaders, campus protests as domestic political events.
+   📌 The argument must be about what political actors are doing, deciding, or failing to do — not merely about whether a political entity should exist or is morally justified.
+   ⚠️ NOT Geopolitical if: the comment is a short question or reaction with no argument about political agency or actors.
+   🔑 KEY DISTINCTION from Ideological: Geopolitical describes or evaluates what political actors do. Ideological declares what justice, rights, or moral order require — without engaging with political agency or process.
+
+7. **Ideological**
+   Core question: *"What does justice require here?"*
+   Signals: claims about legitimacy or illegitimacy of states or movements, colonial or apartheid framing, right to resistance, Zionism as ideology, moral equivalences, justice framing, declarations about who is right or wrong in the conflict — without grounding in legal standards, historical argument, or political analysis.
+   📌 This frame captures articulated ideological positions that go beyond pure emotion but fall short of analytical argument. The author is declaring how the world should be, not describing how it is.
+   ⚠️ NOT Ideological if: the position is grounded in a legal framework (→ Legal), a historical argument (→ Historical/Identity), or an analysis of political actors (→ Geopolitical).
+   🔑 KEY DISTINCTION from Geopolitical: Ideological says "this is wrong/unjust". Geopolitical says "this is what actor X is doing and why".
+
+8. **Other**
+   Use only when the text is genuinely unclassifiable — i.e., it does not meaningfully invoke any of the above frames. This includes fully off-topic comments, incoherent text, or content that are just pure emotions with non ideological or geopolitical arguments. If you are tempted to use it, re-read the eight categories above carefully.
 
 ---
 **CLASSIFICATION RULES:**
 - Choose the ONE frame that best captures the dominant lens of the text.
 - If multiple frames appear, select the one that is most structurally central to the argument or emotional register — not merely mentioned in passing.
-- Do not confuse *topic* with *frame*: a text about civilian deaths can be Humanitarian (suffering focus), Legal/Institutional (accountability focus), or Security/Military (collateral damage as tactical reality), depending on how it is framed.
+- Do not confuse *topic* with *frame*: a text about civilian deaths can be Humanitarian (suffering focus), Legal (accountability focus), or Security/Military (collateral damage as tactical reality), depending on how it is framed.
+- The presence of violence, casualties, or military actors alone does not determine the frame — the *argumentative purpose* does.
+- Classify based on the comment_body alone. Post context helps interpret ambiguous cases but must not override the frame explicitly present in the comment.
 - "Other" should be rare. If you are tempted to use it, re-read the category descriptions carefully.
 
 ---
@@ -388,51 +401,45 @@ Keys:
     "dominant_frame_score": 1
 }}
 
-// 2. Legal/Institutional
+// 2. Legal
 {{
-    "reasoning_dominant_frame_score": "The argument is structured around ICJ rulings, the Genocide Convention, and IHL compliance — the central question is legal legitimacy and institutional accountability, not human suffering per se.",
+    "reasoning_dominant_frame_score": "The argument revolves around whether Israel's actions meet the legal threshold for genocide under the Genocide Convention — the central question is evidentiary and legal, not emotional or strategic.",
     "dominant_frame_score": 2
 }}
 
 // 3. Security/Military
 {{
-    "reasoning_dominant_frame_score": "The text analyzes tunnel infrastructure, IDF tactical options, and the military objective of neutralizing Hamas — the lens is purely strategic, focused on threat assessment and operational effectiveness.",
+    "reasoning_dominant_frame_score": "The text analyzes tunnel infrastructure, IDF tactical options, and the military objective of neutralizing Hamas — the lens is purely strategic, focused on threat assessment and operational effectiveness. Although civilian deaths are mentioned, they appear as part of a proportionality argument, not as the emotional core.",
     "dominant_frame_score": 3
 }}
 
-// 4. Geopolitical/Diplomatic
+// 4. Historical/Identity
 {{
-    "reasoning_dominant_frame_score": "The text centers on state actors (Qatar, Egypt, US), their strategic interests, and diplomatic leverage — the driving question is what states are doing and why, not domestic politics or military tactics.",
+    "reasoning_dominant_frame_score": "The argument explicitly roots the present conflict in the Nakba and 1948 displacement, treating historical land rights and foundational events as the essential frame for understanding the current situation.",
     "dominant_frame_score": 4
 }}
 
-// 5. Domestic Politics
+// 5. Media/Narrative
 {{
-    "reasoning_dominant_frame_score": "The text reads the conflict through the lens of US electoral incentives, donor pressure, and base management — the primary question is domestic political survival, not international diplomacy or military strategy.",
+    "reasoning_dominant_frame_score": "The text is a meta-analysis of media framing — comparing outlet language and arguing that news coverage shapes rather than reflects the conflict. No primary analytical frame about the conflict itself is present.",
     "dominant_frame_score": 5
 }}
 
-// 6. Historical
+// 6. Geopolitical
 {{
-    "reasoning_dominant_frame_score": "The argument explicitly roots the present conflict in the Nakba and 1948 displacement, treating historical land rights and foundational events as the essential frame for understanding the current situation.",
+    "reasoning_dominant_frame_score": "The text centers on Biden's electoral calculus and donor pressure — the primary question is what political actors are doing and why, not the moral legitimacy of their positions.",
     "dominant_frame_score": 6
 }}
 
-// 7. Religious/Civilizational
+// 7. Ideological
 {{
-    "reasoning_dominant_frame_score": "The text frames territorial claims through biblical covenant and divine promise, making religious identity and theological obligation — not history or law — the primary justification for the political position.",
-    "dominant_frame_score": 5
+    "reasoning_dominant_frame_score": "The comment declares that Zionism is a colonial project and that resistance is therefore legitimate — an articulated ideological position about justice and legitimacy, without grounding in legal standards or political analysis.",
+    "dominant_frame_score": 7
 }}
 
-// 8. Media/Narrative
+// 8. Other
 {{
-    "reasoning_dominant_frame_score": "The text is a meta-analysis of media framing itself — comparing outlet language, exposing narrative construction, and arguing that news coverage shapes rather than reflects the conflict. The subject is the discourse, not the events.",
-    "dominant_frame_score": 8
-}}
-
-// 9. Other
-{{
-    "reasoning_dominant_frame_score": "The text expresses vague emotional disengagement without invoking any analytical lens — no legal, military, historical, political, or narrative framework is present. It is genuinely unclassifiable.",
+    "reasoning_dominant_frame_score": "The comment is fully off-topic and contains no reference to the conflict or any analytical frame. It is genuinely unclassifiable.",
     "dominant_frame_score": 9
 }}
 
