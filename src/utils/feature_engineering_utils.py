@@ -117,17 +117,17 @@ The metric should be measured based on the "comment_body", which is the unit of 
 ---
 **POLITICAL STANCE SCALE:**
 
-* **5 — Strongly Pro-Israel:** Explicit support for Israel/IDF actions; pointing out the diffusion of Palestinian terrorism; emphasizing the need for Israeli military security; mocking pro-Palestinian narratives; or explicitly defending there is no evidence of genocide.
+**1 — Strongly Pro-Palestine:** Clear contempt for IDF soldiers; unequivocally standing against Israel (e.g., stating Israel cannot exist); aggressively mocking Israeli narratives; agreeing with claims of Israeli genocide.
 
-* **4 — Leaning Pro-Israel:** Showing some criticism toward Palestinians, Hamas, or Pro-Palestine protests; expressing disagreement with pro-Palestinian policies; presenting nuanced arguments that ultimately place more responsibility on the Palestinian side. 
+**2 — Leaning Pro-Palestine:** Implicit criticism of the media's treatment of Palestine; showing empathy towards Palestine civilians; sarcastic support of the Palestinian cause; pointing out statements by public figures against Palestinians.
 
-* **3 — Neutral / Balanced:** Explicit, symmetric criticism of BOTH sides OR purely factual/procedural content with zero discernible lean. Do not use this as a "dumping ground" for polite comments.
+**3 — Neutral / Balanced:** Explicit, symmetric criticism of BOTH sides OR purely factual/procedural content with zero discernible lean. Do not use this as a "dumping ground" for polite comments.
 
-* **2 — Leaning Pro-Palestine:** Implicit criticism of the media's treatment of Palestine; showing empathy towards Palestine civilians; sarcastic support of the Palestinian cause; pointing out statements by public figures against Palestinians.
+**4 — Leaning Pro-Israel:** Showing some criticism toward Palestinians, Hamas, or Pro-Palestine protests; expressing disagreement with pro-Palestinian policies; presenting nuanced arguments that ultimately place more responsibility on the Palestinian side. 
 
-* **1 — Strongly Pro-Palestine:** Clear contempt for IDF soldiers; unequivocally standing against Israel (e.g., stating Israel cannot exist); aggressively mocking Israeli narratives; agreeing with claims of Israeli genocide.
+**5 — Strongly Pro-Israel:** Explicit support for Israel/IDF actions; pointing out the diffusion of Palestinian terrorism; emphasizing the need for Israeli military security; mocking pro-Palestinian narratives; or explicitly defending there is no evidence of genocide.
 
-* **-1 — Unclassifiable:** Spam, off-topic content, generic technical/legal questions, pure meta-reddit comments, isolated personal insults, or content where a political stance on the Gaza conflict itself cannot be meaningfully inferred without guessing.
+**-1 — Unclassifiable:** Spam, off-topic content, generic technical/legal questions, pure meta-reddit comments, isolated personal insults, or content where a political stance on the Gaza conflict itself cannot be meaningfully inferred without guessing.
 
 ---
 **OUTPUT FORMAT:**
@@ -372,6 +372,7 @@ The metric should be measured based on the "comment_body", which is the unit of 
    📌 This frame captures articulated ideological positions that go beyond pure emotion but fall short of analytical argument. The author is declaring how the world should be, not describing how it is.
    ⚠️ NOT Ideological if: the position is grounded in a legal framework (→ Legal), a historical argument (→ Historical/Identity), or an analysis of political actors (→ Geopolitical).
    🔑 KEY DISTINCTION from Geopolitical: Ideological says "this is wrong/unjust". Geopolitical says "this is what actor X is doing and why".
+   🔑 KEY DISTINCTION from Legal: Legal engages with evidentiary or normative standards. Ideological bypasses them — "scholars aside, common sense dictates" is Ideological, not Legal.
 
 8. **Other**
    Use only when the text is genuinely unclassifiable — i.e., it does not meaningfully invoke any of the above frames. This includes fully off-topic comments, incoherent text, or content that are just pure emotions with non ideological or geopolitical arguments. If you are tempted to use it, re-read the eight categories above carefully.
@@ -744,6 +745,33 @@ def adjacent_accuracy(y_true, y_pred, adjacent_tol=1):
     return adjacent_acc
 
 #==============================================================================
+
+def grouped_accuracy_political_stance(y_true, y_pred):
+    """
+    Accuracy agrupada para political_stance_score:
+    - {1, 2} → Pro-Palestine
+    - {4, 5} → Pro-Israel
+    - {3}    → Neutral (exact match only)
+    - {-1}   → Unclassifiable (exact match only)
+    """
+    def to_group(val):
+        if val in (1, 2):
+            return 'pro_palestine'
+        elif val in (4, 5):
+            return 'pro_israel'
+        elif val == 3:
+            return 'neutral'
+        elif val == -1:
+            return 'unclassifiable'
+        else:
+            return 'unknown'
+    
+    y_true_grouped = [to_group(v) for v in y_true]
+    y_pred_grouped = [to_group(v) for v in y_pred]
+    
+    return accuracy_score(y_true_grouped, y_pred_grouped)
+
+#==============================================================================
 # NORMALIZACIÓN
 #==============================================================================
 def normalize_str_categories(values):
@@ -828,15 +856,12 @@ async def validate_single_row(sem, row, client, feature_name, feature_config,
 
 
             # Safety Casting (consistente con el runner de generación)
-            if feature_type == 'ordinal':
+            if feature_type != 'continuous':
                 predicted_value = int(predicted_value) if predicted_value is not None else -1
                 true_value = int(true_value)
-            elif feature_type == 'continuous':
+            else:
                 predicted_value = float(predicted_value) if predicted_value is not None else 0.0
                 true_value = float(true_value)
-            else:
-                predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
-                true_value = str(true_value)
 
             return {
                 'comment_id': comment_id,
@@ -964,8 +989,14 @@ async def run_validation_for_feature(feature_name, feature_config, df_val,
 
         elif feature_type == 'categorical':
             validation_results['individual_validation']['score_type'] = 'accuracy'
-            score_value = accuracy_score(y_true, y_pred)
-            logging.info(f"  🎯 Iter {iter_idx} - Accuracy: {score_value:.2%}")
+            
+            if feature_name == 'political_stance_score':
+                score_value = grouped_accuracy_political_stance(y_true, y_pred)
+                logging.info(f"  🎯 Iter {iter_idx} - Grouped Accuracy: {score_value:.2%}")
+            else:
+                score_value = accuracy_score(y_true, y_pred)
+                logging.info(f"  🎯 Iter {iter_idx} - Accuracy: {score_value:.2%}")
+            
             passed = score_value >= validation_threshold
 
         elif feature_type == 'continuous':
