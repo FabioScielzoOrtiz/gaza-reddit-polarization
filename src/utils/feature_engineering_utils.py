@@ -441,7 +441,7 @@ Keys:
 // 8. Other
 {{
     "reasoning_dominant_frame_score": "The comment is fully off-topic and contains no reference to the conflict or any analytical frame. It is genuinely unclassifiable.",
-    "dominant_frame_score": 9
+    "dominant_frame_score": 8
 }}
 
 ---
@@ -1047,6 +1047,11 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
         text_input = row['text_content']
         feature_type = feature_config['type']
         
+        # ✅ Initialize all variables before try/except
+        llm_response = None
+        llm_prompt = None
+        reasoning = None
+
         start_time = time.perf_counter()
 
         try:
@@ -1061,18 +1066,15 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
             predicted_value = response_json.get(feature_name)
             reasoning = response_json.get(f"reasoning_{feature_name}")
             
-            if feature_type == 'ordinal':
+            if feature_type != 'continuous':
                 predicted_value = int(predicted_value) if predicted_value is not None else -1
-            elif feature_type == 'continuous':
-                predicted_value = float(predicted_value) if predicted_value is not None else 0.0
             else:
-                predicted_value = str(predicted_value) if predicted_value is not None else "ERROR"
+                predicted_value = float(predicted_value) if predicted_value is not None else 0.0
 
         except Exception as e:
             logging.warning(f"⚠️ Error in comment {comment_id}: {e}") 
-            if feature_type == 'ordinal': predicted_value = -1
-            elif feature_type == 'continuous': predicted_value = 0.0
-            else: predicted_value = "ERROR"
+            if feature_type != 'continuous': predicted_value = -1
+            else: predicted_value = 0.0
 
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
@@ -1080,15 +1082,15 @@ async def process_single_row(sem, row, client, feature_name, feature_config,
         response = {
             "comment_id": comment_id,
             feature_name: predicted_value,
-            f"reasoning_{feature_name}": reasoning
+            f"reasoning_{feature_name}": reasoning  # ✅ now always defined
         }
         
         current_metadata = {
             'comment_id': comment_id,
-            'response': llm_response,
+            'response': llm_response,            # ✅ now always defined (None on error)
             'time': round(elapsed_time, 4),
-            'input_tokens': len(str(llm_prompt)) // 4,
-            'output_tokens': len(str(llm_response)) // 4,
+            'input_tokens': len(str(llm_prompt)) // 4 if llm_prompt else 0,   # ✅ guard None
+            'output_tokens': len(str(llm_response)) // 4 if llm_response else 0,  # ✅ guard None
             'model_name': model_name,
             'temperature': temperature,
             'processing_date': time.strftime("%Y-%m-%d %H:%M:%S")
