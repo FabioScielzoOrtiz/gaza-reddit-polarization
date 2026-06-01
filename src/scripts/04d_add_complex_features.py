@@ -39,13 +39,15 @@ def main():
 
     for filename in os.listdir(features_dir):
         feature_name, extension = os.path.splitext(filename) 
-        if feature_name != 'content_relevance_score' and extension == '.parquet':
-            feature_path = os.path.join(features_dir, filename)
-            feature_df = pl.read_parquet(feature_path)
-            feature_type = FEATURE_CONFIG[feature_name]['type']
-            feature_df = feature_df.with_columns(pl.col(feature_name).cast(pl.Int64)) if feature_type in ['categorical', 'ordinal'] else feature_df.with_columns(pl.col(feature_name).cast(pl.Float64))
-            df = df.join(feature_df, how='left', on='comment_id')
+        if feature_name not in ['embeddings', 'embeddings_pca']:
+            if feature_name != 'content_relevance_score' and extension == '.parquet':
+                feature_path = os.path.join(features_dir, filename)
+                feature_df = pl.read_parquet(feature_path)
+                feature_type = FEATURE_CONFIG[feature_name]['type']
+                feature_df = feature_df.with_columns(pl.col(feature_name).cast(pl.Int64)) if feature_type in ['categorical', 'ordinal'] else feature_df.with_columns(pl.col(feature_name).cast(pl.Float64))
+                df = df.join(feature_df, how='left', on='comment_id')
 
+    df = df.unique(subset=["comment_id"], keep="first")
     df.write_parquet(processed_data_path)
 
     logging.info(f'✅ Complex features added successfully.')

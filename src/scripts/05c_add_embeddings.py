@@ -40,13 +40,14 @@ def main():
 
     try:
         df_pca_embeddings = pl.read_parquet(pca_embeddings_path)
+        df_pca_embeddings = df_pca_embeddings.unique(subset=["comment_id"], keep="first")
         logging.info(f"PCA embeddings dataset loaded: {len(df)} records.")
     except Exception as e:
         logging.error(f"❌ Failed to load PCA embeddings data: {e}")
         exit()
 
-    df = df.join(df_pca_embeddings, how='left', on='comment_id')
-
+    df = df.join(df_pca_embeddings, how='inner', on='comment_id')
+    df = df.unique(subset=["comment_id"], keep="first")
     df.write_parquet(processed_data_path)
 
     logging.info(f'✅ PCA embeddings added successfully.')

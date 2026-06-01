@@ -1377,9 +1377,7 @@ def run_reduce_embedding_dimension(df_raw_embeddings, pca_embeddings_path):
     # 1. FASE DE ANÁLISIS VISUAL
     # ==========================================================================
     
-    # Calculamos un máximo razonable para visualizar (ej: 50 o el total de features)
-    # No hace falta calcular 1000 componentes si solo nos interesa ver dónde se aplana la curva
-    max_components_viz = min(n_samples, n_features, 50) 
+    max_components_viz = min(n_samples, n_features, 500) 
     
     pca_viz = PCA(n_components=max_components_viz)
     pca_viz.fit(embeddings_matrix)
