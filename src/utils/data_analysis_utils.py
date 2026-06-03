@@ -31,6 +31,7 @@ def group_stats(df, cols, group_by):
     return df.group_by(group_by).agg(stats)
 
 #########################################################################################################################################################
+
 def plot_cat_distribution(df, cat_cols, order=None, max_cols=3, palette="Set2", x_rotation=30, orient="v"):
     """
     orient: "v" para barras verticales (x=categoría), "h" para horizontales (y=categoría).
@@ -182,6 +183,7 @@ def plot_quant_distribution(df, quant_cols, max_cols=3, box_color="skyblue", his
     plt.show()
 
 #########################################################################################################################################################
+
 def plot_quant_comparison(df, comparisons, group_by=None, figsize=None, showfliers=True, order=None, labelbottom=True, xlabel_rotation=30, max_cols=3, title=None, palette="Set2", bbox_to_anchor=(0.5, -0.03)):
     
     n_blocks = len(comparisons)
