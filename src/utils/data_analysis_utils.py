@@ -377,7 +377,8 @@ def plot_quant_comparison(df, comparisons, group_by=None, figsize=None, showflie
 
 def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, subplots_title=True, order=None,
                         hue_order=None, palette="Set2", cat_palette=None, 
-                        bbox_to_anchor=(0.5, -0.03), sharey=False):
+                        bbox_to_anchor=(0.5, -0.03), sharey=False,
+                        x_rotation=30, orientation="v"):
 
     n_blocks = len(comparisons)
 
@@ -442,24 +443,30 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
                 )
                 prop["proporcion"] = prop.groupby(group_by)["n"].transform(lambda x: x / x.sum())
 
-                # order → eje X (valores de col)
-                col_order = order if order else (
-                    pdf[col].value_counts().sort_values(ascending=False).index.tolist()
-                )
+                # order → eje X (valores de col) manejando diccionario o lista
+                fallback_order = pdf[col].value_counts().sort_values(ascending=False).index.tolist()
+                if isinstance(order, dict):
+                    col_order = order.get(col, fallback_order)
+                else:
+                    col_order = order if order else fallback_order
 
                 # hue_order → orden de los grupos (valores de group_by)
                 resolved_hue_order = hue_order if hue_order else group_vals
-
                 local_palette = {k: fixed_palette[k] for k in group_vals if k in fixed_palette}
 
-                sns.barplot(
-                    data=prop, x=col, y="proporcion", hue=group_by,
-                    palette=local_palette,
-                    order=col_order,
-                    hue_order=resolved_hue_order,
-                    ax=ax,
-                    legend=False
-                )
+                if orientation == "h":
+                    sns.barplot(
+                        data=prop, x="proporcion", y=col, hue=group_by,
+                        palette=local_palette, order=col_order,
+                        hue_order=resolved_hue_order, ax=ax, legend=False
+                    )
+                else:
+                    sns.barplot(
+                        data=prop, x=col, y="proporcion", hue=group_by,
+                        palette=local_palette, order=col_order,
+                        hue_order=resolved_hue_order, ax=ax, legend=False
+                    )
+
         else:
             frames = []
             for col in col_group:
@@ -475,17 +482,27 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
             )
             prop["proporcion"] = prop.groupby("variable")["n"].transform(lambda x: x / x.sum())
 
-            col_order = order if order else (
-                tidy["valor"].value_counts().sort_values(ascending=False).index.tolist()
-            )
+            # Para agrupar, buscar el orden de la primera columna que lo tenga definido
+            fallback_order = tidy["valor"].value_counts().sort_values(ascending=False).index.tolist()
+            if isinstance(order, dict):
+                col_order = fallback_order
+                for c_name in col_group:
+                    if c_name in order:
+                        col_order = order[c_name]
+                        break
+            else:
+                col_order = order if order else fallback_order
 
-            sns.barplot(
-                data=prop, x="valor", y="proporcion", hue="variable",
-                palette=palette,
-                order=col_order,
-                ax=ax,
-                legend=False
-            )
+            if orientation == "h":
+                sns.barplot(
+                    data=prop, x="proporcion", y="valor", hue="variable",
+                    palette=palette, order=col_order, ax=ax, legend=False
+                )
+            else:
+                sns.barplot(
+                    data=prop, x="valor", y="proporcion", hue="variable",
+                    palette=palette, order=col_order, ax=ax, legend=False
+                )
 
         if subplots_title:
             block_title = " vs ".join(col.upper() for col in col_group)
@@ -493,9 +510,15 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
                 block_title += f"\n(por {group_by})"
             ax.set_title(block_title, fontsize=11, fontweight="bold")
 
-        ax.set_xlabel("")
-        ax.set_ylabel("Proporción condicional")
-        ax.tick_params(axis='x', rotation=30, labelsize=10)
+        # Ajuste de etiquetas de ejes según la orientación
+        if orientation == "h":
+            ax.set_xlabel("Proporción condicional")
+            ax.set_ylabel("")
+        else:
+            ax.set_xlabel("")
+            ax.set_ylabel("Proporción condicional")
+            
+        ax.tick_params(axis='x', rotation=x_rotation, labelsize=10)
 
     # --- 4. LEYENDA GLOBAL MANUAL ---
     if group_by:
@@ -530,7 +553,7 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
         fig.delaxes(axes[r, c])
 
     if title:
-        fig.suptitle(title , fontsize=15, fontweight="bold", y=1.02)
+        fig.suptitle(title, fontsize=15, fontweight="bold", y=1.02)
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.08)

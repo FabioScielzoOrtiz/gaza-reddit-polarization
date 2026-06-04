@@ -212,7 +212,7 @@ Your task is to identify the **Dominant Discourse Tone** of the provided comment
 The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
 
 ---
-**CATEGORIES (Choose exactly ONE — see Priority Rule below):**
+**Discourse Tone Score (Choose exactly ONE — see Priority Rule below):**
 
 1. Analytical: Objective tone grounded in logic, strategic reasoning, or structured argumentation. May cite sources or historical precedent. Low emotional charge. The author is building a case, not merely reporting.
 
@@ -327,7 +327,7 @@ Your task is to identify the **Dominant Frame** used in the text. This is the pr
 The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". Classify based on the comment_body alone — the post context provides background but should not override the frame of the comment itself.
 
 ---
-**CATEGORIES (Choose exactly ONE):**
+**Dominant Frame Score (Choose exactly ONE):**
 
 1. **Humanitarian**
    Core question: *"What is happening to people?"*
@@ -480,7 +480,7 @@ Your task is to assign an **Argument Quality Score** from **0 to 5** based on th
 The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
 
 ---
-**SCORING RUBRIC:**
+**Argument Quality Score:**
 
 **0 — Spam / Non-Argument**
 The text cannot be evaluated as deliberation. Includes: broken or garbled text, bot-generated noise, purely phatic content ("lol", "???"), or content with no discernible communicative intent related to the conflict.
@@ -594,7 +594,7 @@ Assign a continuous **Sentiment Score** from **-1.0** to **1.0** based exclusive
 The metric should be measured based on the "comment_body", which is the unit of analysis; the "post_title" and "post_body" should be used to provide context for the "comment_body". 
 
 ---
-**SCORING RUBRIC:**
+**Sentiment Score:**
 
 **-1.0 to -0.7 — Very Negative**
 Extreme emotional intensity in the negative register. Includes: dehumanizing language, hate speech, explicit calls for violence/destruction, graphic expressions of rage, unmitigated contempt, or deep trauma/despair directed outwards or inwards without any element of communal solidarity.
