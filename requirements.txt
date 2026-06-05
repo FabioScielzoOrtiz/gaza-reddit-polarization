@@ -11,3 +11,4 @@ db-robust-clust==0.1.12
 kmedoids==0.5.5
 spacy
 click
+WordCloud

@@ -691,7 +691,7 @@ def plot_quant_scatter(df, comparisons, group_by=None, figsize=None,
 
 #########################################################################################################################################################
 
-def get_medoid_and_knn_by_cluster(clust_object, knn_k=10):
+def get_medoid_and_knn_by_cluster(clust_object, dist_matrix, knn_k=10):
 
     medoid_and_knn_by_cluster = {}
 
@@ -704,7 +704,7 @@ def get_medoid_and_knn_by_cluster(clust_object, knn_k=10):
         medoid_idx_dist_matrix = clust_object.medoid_indices_[cluster_label]
 
         # Distancias del medoide a todos los puntos del cluster
-        distances_to_medoid = D[medoid_idx_dist_matrix, cluster_indices]
+        distances_to_medoid = dist_matrix[medoid_idx_dist_matrix, cluster_indices]
 
         # Ordenar por distancia e incluir medoide (posición 0)
         sorted_positions = np.argsort(distances_to_medoid)
