@@ -43,7 +43,7 @@ def group_stats(df, cols, group_by):
 
 #########################################################################################################################################################
 
-def plot_cat_distribution(df, cat_cols, order=None, max_cols=3, palette="Set2", x_rotation=30, orient="v"):
+def plot_cat_distribution(df, cat_cols, order=None, max_cols=3, palette="Set2", x_rotation=30, orient="v", save_path=None):
 
     n_vars = len(cat_cols)
     if n_vars == 0:
@@ -113,11 +113,15 @@ def plot_cat_distribution(df, cat_cols, order=None, max_cols=3, palette="Set2", 
         fig.delaxes(axes[r, c])
 
     plt.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+    
     plt.show()
     
 #########################################################################################################################################################
 
-def plot_quant_distribution(df, quant_cols, max_cols=3, box_color="skyblue", hist_color="salmon"):
+def plot_quant_distribution(df, quant_cols, max_cols=3, box_color="skyblue", hist_color="salmon", save_path=None):
 
     n_vars = len(quant_cols)
     
@@ -178,11 +182,17 @@ def plot_quant_distribution(df, quant_cols, max_cols=3, box_color="skyblue", his
 
     # --- 4. RENDERIZADO ---
     plt.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+
     plt.show()
 
 #########################################################################################################################################################
 
-def plot_quant_comparison(df, comparisons, group_by=None, figsize=None, showfliers=True, order=None, labelbottom=True, xlabel_rotation=30, max_cols=3, title=None, palette="Set2", bbox_to_anchor=(0.5, -0.03)):
+def plot_quant_comparison(df, comparisons, group_by=None, figsize=None, showfliers=True, order=None, labelbottom=True, 
+                          xlabel_rotation=30, max_cols=3, title=None, palette="Set2", bbox_to_anchor=(0.5, -0.03),
+                          save_path=None):
     
     n_blocks = len(comparisons)
 
@@ -369,6 +379,10 @@ def plot_quant_comparison(df, comparisons, group_by=None, figsize=None, showflie
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.08)
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+
     plt.show()
 
 #########################################################################################################################################################
@@ -376,7 +390,7 @@ def plot_quant_comparison(df, comparisons, group_by=None, figsize=None, showflie
 def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, subplots_title=True, order=None,
                         hue_order=None, palette="Set2", cat_palette=None, 
                         bbox_to_anchor=(0.5, -0.03), sharey=False,
-                        x_rotation=30, orientation="v"):
+                        x_rotation=30, orientation="v", save_path=None):
 
     n_blocks = len(comparisons)
 
@@ -555,6 +569,10 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.08)
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+
     plt.show()
 
 #########################################################################################################################################################
@@ -562,7 +580,7 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
 def plot_quant_scatter(df, comparisons, group_by=None, figsize=None,
                        order=None, max_cols=3, title=False,
                        palette="Set2", alpha=0.6, show_regression=True, corr_annotation=True,
-                       bbox_to_anchor=(0.5, -0.03)):
+                       bbox_to_anchor=(0.5, -0.03), save_path=None):
 
     n_blocks = len(comparisons)
     if n_blocks == 0:
@@ -687,6 +705,10 @@ def plot_quant_scatter(df, comparisons, group_by=None, figsize=None,
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.10)
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+
     plt.show()
 
 #########################################################################################################################################################
