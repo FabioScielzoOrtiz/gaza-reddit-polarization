@@ -51,13 +51,13 @@ def main():
     try:
         embeddings_cols = [col for col in processed_data.columns if 'embedding' in col]
 
-        numerical_cols = ['sentiment_score'] + embeddings_cols
+        numerical_cols = ['sentiment_score'] #+ embeddings_cols
         ordinal_cols = ['argument_quality_score', 'political_stance_score']
         nominal_cols = ['discourse_tone_score', 'dominant_frame_score']
 
-        QUANT_COLS = numerical_cols
+        QUANT_COLS = numerical_cols + ordinal_cols
         BINARY_COLS = []
-        MULTICLASS_COLS = nominal_cols + ordinal_cols
+        MULTICLASS_COLS = nominal_cols 
 
         N_CLUSTERS = 4
         KMEDOIDS_METHOD = 'pam'

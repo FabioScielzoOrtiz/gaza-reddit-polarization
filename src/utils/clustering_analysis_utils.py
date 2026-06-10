@@ -15,6 +15,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import stats
+import spacy
+from sklearn.feature_extraction.text import TfidfVectorizer
+from wordcloud import WordCloud
 
 sns.set_style('whitegrid')
 
@@ -739,6 +742,187 @@ def get_medoid_and_knn_by_cluster(clust_object, dist_matrix, knn_k=10):
 
 #########################################################################################################################################################
 
+def generate_cluster_tfidf_visualizations(
+    data: pl.DataFrame,
+    clust_label_col,
+    clust_object,
+    dist_matrix,
+    results_dir: str,
+    knn_k: int = 10,
+    top_n: int = 10,
+    spacy_model: str = "en_core_web_sm",
+    batch_size: int = 1000,
+    bar_plot_name: str = 'optimal_clust_tf_idf_bar_plot.png',
+    wordcloud_name: str = 'optimal_clust_tf_idf_wordcloud_plot.png',
+    custom_stopwords: list[str] | None = None   
+):
+    """
+    Filtra los datos por medoides y KNN, procesa el texto (NLP), 
+    calcula c-TF-IDF por cluster y genera gráficos de barras y nubes de palabras.
+
+    Args:
+        ...
+        custom_stopwords: Lista opcional de palabras adicionales a excluir
+                          del análisis TF-IDF (e.g. ["mean", "yes", "thing"]).
+    """
+    
+    # 1. Obtención de índices
+    medoid_and_knn_by_cluster = get_medoid_and_knn_by_cluster(
+        clust_object, 
+        dist_matrix=dist_matrix, 
+        knn_k=knn_k
+    )
+
+    all_target_indices = [idx for indices in medoid_and_knn_by_cluster.values() for idx in indices]
+
+    # Normalizar custom_stopwords a un set de términos en minúscula
+    extra_stopwords = {w.lower() for w in custom_stopwords} if custom_stopwords else set()  # ← NUEVO
+
+    # Cargar modelo NLP
+    nlp = spacy.load(spacy_model, disable=["ner", "parser"]) 
+
+    # ==========================================
+    # FASE 1: FILTRADO Y PREPROCESAMIENTO
+    # ==========================================
+    print("Filtrando dataset mediante índices de medoids y KNN...")
+
+    df = data.with_row_index("row_idx").filter(pl.col("row_idx").is_in(all_target_indices))
+    df = df.with_columns(pl.col("comment_body").fill_null("").alias("target_text"))
+
+    def clean_text_batch(texts):
+        for doc in nlp.pipe(texts, batch_size=batch_size):
+            tokens = [
+                token.lemma_.lower() for token in doc
+                if not token.is_stop
+                and token.is_alpha
+                and token.lemma_.lower() not in extra_stopwords  # ← NUEVO FILTRO
+            ]
+            yield " ".join(tokens)
+
+    print("Lematizando exclusivamente los comentarios filtrados...")
+    raw_comments = df["target_text"].to_list()
+    df = df.with_columns(pl.Series(name="cleaned_comment", values=list(clean_text_batch(raw_comments))))
+
+    # ==========================================
+    # FASE 2: C-TF-IDF (SIN INFLACIÓN DE CONTEXTO)
+    # ==========================================
+    print("Agrupando comentarios por cluster...")
+    cluster_df = (
+        df.group_by(clust_label_col)
+        .agg(pl.col("cleaned_comment").str.join(" ")) 
+        .sort(clust_label_col)
+    )
+
+    cluster_labels = cluster_df[clust_label_col].to_list()
+    cluster_corpus = cluster_df["cleaned_comment"].to_list()
+
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
+    tfidf_matrix = vectorizer.fit_transform(cluster_corpus)
+    feature_names = vectorizer.get_feature_names_out()
+
+    # ==========================================
+    # FASE 3: PREPARACIÓN DE DATOS
+    # ==========================================
+    plot_data = []
+    cluster_term_frequencies = {} 
+
+    for i, label in enumerate(cluster_labels):
+        row = tfidf_matrix.getrow(i).toarray()[0]
+        
+        # Extraer Top N para el gráfico de barras
+        top_indices = row.argsort()[-top_n:][::-1]
+        for idx in top_indices:
+            plot_data.append({
+                "Cluster": label,
+                "Term": feature_names[idx],
+                "c-TF-IDF Score": row[idx]
+            })
+            
+        # Extraer todas las palabras con score > 0 para la nube
+        cluster_term_frequencies[label] = {
+            feature_names[idx]: row[idx] for idx in np.where(row > 0)[0]
+        }
+
+    df_plot = pl.DataFrame(plot_data)
+
+    # ==========================================
+    # FASE 4: VISUALIZACIONES SOTA Y WORDCLOUDS
+    # ==========================================
+
+    # --- 1. GRÁFICO DE BARRAS FACETEADO ---
+    print("Generando Gráfico de Barras SOTA...")
+    sns.set_theme(style="whitegrid", font_scale=1.1)
+
+    g = sns.FacetGrid(
+        df_plot.to_pandas(), # Convertido a pandas por compatibilidad con seaborn
+        col="Cluster", 
+        col_wrap=2, 
+        sharex=False, 
+        sharey=False, 
+        height=4, 
+        aspect=1.2
+    )
+
+    def barplot_wrapper(x, y, **kwargs):
+        ax = plt.gca()
+        sns.barplot(x=x, y=y, ax=ax, palette="viridis", hue=y, legend=False)
+        ax.set_xlabel("c-TF-IDF Score")
+        ax.set_ylabel("")
+
+    g.map(barplot_wrapper, "c-TF-IDF Score", "Term")
+    g.set_titles(col_template="Cluster {col_name}", fontweight='bold')
+    plt.suptitle('TF-IDF Barplot', y=1.02)
+    plt.tight_layout()
+
+    # Guardar gráfico de barras
+    os.makedirs(results_dir, exist_ok=True) # Aseguramos que el directorio exista
+    bar_plot_path = os.path.join(results_dir, bar_plot_name)
+    plt.savefig(bar_plot_path, dpi=300, bbox_inches="tight")
+    plt.show()
+
+    # --- 2. NUBES DE PALABRAS ---
+    print("Generando Nubes de Palabras basadas en pesos c-TF-IDF...")
+    num_clusters = len(cluster_labels)
+    
+    # Cálculo dinámico de filas para los subplots de la nube de palabras
+    cols = 2
+    rows = math.ceil(num_clusters / cols)
+    
+    fig, axes = plt.subplots(rows, cols, figsize=(12, 6 * rows))
+    
+    # Si solo hay 1 fila o 1 cluster, homogeneizamos axes a un array plano
+    if num_clusters == 1:
+        axes = np.array([axes])
+    axes = axes.flatten()
+
+    for i, label in enumerate(cluster_labels):
+        wc = WordCloud(
+            width=800, 
+            height=800, 
+            background_color="white",
+            colormap="viridis",
+            max_words=100
+        ).generate_from_frequencies(cluster_term_frequencies[label])
+        
+        axes[i].imshow(wc, interpolation="bilinear")
+        axes[i].set_title(f"Cluster {label}", fontweight='bold', fontsize=16)
+        axes[i].axis("off")
+
+    # Ocultar ejes vacíos si num_clusters es impar
+    for j in range(i + 1, len(axes)):
+        axes[j].axis("off")
+
+    plt.suptitle('TF-IDF WordCloud', fontsize=20, y=1.02)
+    plt.tight_layout()
+
+    # Guardar nube de palabras
+    wordcloud_path = os.path.join(results_dir, wordcloud_name)
+    plt.savefig(wordcloud_path, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+#########################################################################################################################################################
+
 def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, multiclass_cols, QUANT_COMPARISON_COLS, CAT_COMPARISON_COLS, CAT_COMPARISON_ORDER):
     
     case_title = f'SampleDistClustering-KMedoids-PAM - k={n_clusters}'
@@ -847,14 +1031,14 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
 
     ##################################################################################################
 
-    medoid_and_knn_by_cluster = get_medoid_and_knn_by_cluster(clust_object, knn_k=10)
+    medoid_and_knn_by_cluster = get_medoid_and_knn_by_cluster(clust_object,dist_matrix=D, knn_k=10)
 
     for cluster_label in np.unique(clust_object.labels_):
          
         print('-'*50)
         print(f'Medoid and KNN for Cluster {cluster_label}:\n')
         print('-'*50)
-        display(data[medoid_and_knn_by_cluster[cluster_label], ['post_title', 'post_body', 'comment_body'] + CAT_COMPARISON_COLS])
+        print(data[medoid_and_knn_by_cluster[cluster_label], ['post_title', 'post_body', 'comment_body'] + CAT_COMPARISON_COLS])
 
 ####################################################################################################################################################################################################
 
