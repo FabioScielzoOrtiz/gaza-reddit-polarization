@@ -117,7 +117,7 @@ def main():
             sentiment_condition.alias("sentiment_score_label")
         )
 
-        # Filtering invalid scores
+        # Filtering scores
         processed_data = processed_data.filter(
             pl.col('political_stance_score') != -1,
             pl.col('discourse_tone_score') != -1,

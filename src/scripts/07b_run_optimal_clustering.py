@@ -3,10 +3,11 @@
 # --- IMPORTS ---
 
 import os, sys
+import argparse
 import logging
 import polars as pl
-import numpy as np
 import joblib
+from sklearn.cluster import KMeans
 from kmedoids import KMedoids
 from db_robust_clust.models import SampleDistClustering
 
@@ -15,6 +16,21 @@ from db_robust_clust.models import SampleDistClustering
 # --- LOGGING CONFIGURATION ---
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+#################################################################################################
+
+# --- ARGUMENT PARSING ---
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Entrena los modelos de clustering definidos en clust_config_metadata."
+    )
+    parser.add_argument(
+        '--force', '-f',
+        action='store_true',
+        help="Fuerza la re-ejecución y sobrescritura de los modelos que ya existan en disco."
+    )
+    return parser.parse_args()
 
 #################################################################################################
 
@@ -28,16 +44,20 @@ project_path = os.path.join(script_path, '..', '..')
 models_dir = os.path.join(project_path, 'models')
 processed_data_dir = os.path.join(project_path, 'data', 'processed_data')
 processed_data_path = os.path.join(processed_data_dir, '06_processed_data.parquet')
-model_save_path = os.path.join(models_dir, 'optimal_clust_model.joblib')
 
 # Asegurar que el directorio de modelos existe
 os.makedirs(models_dir, exist_ok=True)
+
+sys.path.append(project_path)
+from config.config_07b import clust_config_metadata
 
 #################################################################################################
 
 # --- MAIN EXECUTION ---
 
 def main():
+
+    args = parse_args()
 
     # 1. Load Data
     try:
@@ -46,79 +66,97 @@ def main():
     except Exception as e:
         logging.error(f"❌ Failed to load processed data: {e}")
         exit()
+    
+    for config_key, config in clust_config_metadata.items():
 
-    # 2. Configure Features and Parameters
-    try:
-        embeddings_cols = [col for col in processed_data.columns if 'embedding' in col]
+        logging.info(f'▶️ Running for {config_key}')
 
-        numerical_cols = ['sentiment_score'] #+ embeddings_cols
-        ordinal_cols = ['argument_quality_score', 'political_stance_score']
-        nominal_cols = ['discourse_tone_score', 'dominant_frame_score']
+        # 1bis. Comprobar si el modelo ya existe para saltar la iteración (salvo --force)
+        model_save_path = os.path.join(models_dir, f'optimal_model_{config_key}.joblib')
 
-        QUANT_COLS = numerical_cols + ordinal_cols
-        BINARY_COLS = []
-        MULTICLASS_COLS = nominal_cols 
+        if os.path.exists(model_save_path) and not args.force:
+            logging.info(
+                f"⛔ El modelo para '{config_key}' ya existe en {model_save_path} "
+                f"--> Saltando esta iteración (usa --force/-f para forzar la re-ejecución)."
+            )
+            continue
 
-        N_CLUSTERS = 4
-        KMEDOIDS_METHOD = 'pam'
-        METRIC = 'ggower'
-        D1 = 'robust_mahalanobis'
-        D2 = 'sokal'
-        D3 = 'hamming'
-        ROBUST_METHOD = 'trimmed'
-        ALPHA = 0.05
-        FRAC_SAMPLE_SIZE = 0.15
-
-        p1 = len(QUANT_COLS)
-        p2 = len(BINARY_COLS)
-        p3 = len(MULTICLASS_COLS)
-
-        X = processed_data.select(QUANT_COLS + BINARY_COLS + MULTICLASS_COLS)
+        QUANT_COLS = config['quant_cols']
+        BINARY_COLS = config['binary_cols']
+        MULTICLASS_COLS = config['multiclass_cols']
+        N_CLUSTERS = config['n_clusters']
         
-        logging.info(f"✅ Features extracted and configured successfully. Shape of X: {X.shape}.")
+        if config_key != 'clust_config_III':
+            KMEDOIDS_METHOD = config['kmedoids_method']
+            FRAC_SAMPLE_SIZE = config['frac_sample_size']
+            METRIC = config['metric']
+            D1 = config['d1']
+            D2 = config['d2']
+            D3 = config['d3']
+            ROBUST_METHOD = config['robust_method']
+            ALPHA = config['alpha']
 
-    except Exception as e:
-        logging.error(f"❌ Error during feature configuration: {e}")
-        exit()
+        # 2. Configure Features and Parameters
+        try:
+            
+            if config_key != 'clust_config_III':
+                p1 = len(QUANT_COLS)
+                p2 = len(BINARY_COLS)
+                p3 = len(MULTICLASS_COLS)
 
-    # 3. Train Clustering Model
-    try:
-        logging.info("Initializing and fitting SampleDistClustering model. This may take a while...")
-        
-        clustering_method = KMedoids(
-            n_clusters=N_CLUSTERS, 
-            metric='precomputed', 
-            method=KMEDOIDS_METHOD, 
-            init='build', 
-            max_iter=100, 
-            random_state=123
-        )
+            X = processed_data.select(QUANT_COLS + BINARY_COLS + MULTICLASS_COLS)
+            
+            logging.info(f"Features extracted and configured successfully. Shape of X: {X.shape}.")
 
-        clust_object = SampleDistClustering(
-            clustering_method=clustering_method,
-            metric=METRIC,
-            frac_sample_size=FRAC_SAMPLE_SIZE,
-            random_state=123,
-            stratify=False,
-            p1=p1, p2=p2, p3=p3,
-            d1=D1, d2=D2, d3=D3, 
-            robust_method=ROBUST_METHOD, alpha=ALPHA
-        )
+        except Exception as e:
+            logging.error(f"❌ Error during feature configuration: {e}")
+            exit()
 
-        clust_object.fit(X)
-        logging.info("✅ Model fitted successfully.")
+        # 3. Train Clustering Model
+        try:
+            logging.info("Initializing and fitting SampleDistClustering model. This may take a while...")
+            
+            if config_key != 'clust_config_III':
 
-    except Exception as e:
-        logging.error(f"❌ Error during model training: {e}")
-        exit()
+                clustering_method = KMedoids(
+                    n_clusters=N_CLUSTERS, 
+                    metric='precomputed', 
+                    method=KMEDOIDS_METHOD, 
+                    init='build', 
+                    max_iter=100, 
+                    random_state=123
+                )
 
-    # 4. Save Model
-    try:
-        joblib.dump(clust_object, model_save_path)
-        logging.info(f'📁 Optimal clustering model saved at {model_save_path}.')
-    except Exception as e:
-        logging.error(f"❌ Failed to save the model: {e}")
-        exit()
+                clust_object = SampleDistClustering(
+                    clustering_method=clustering_method,
+                    metric=METRIC,
+                    frac_sample_size=FRAC_SAMPLE_SIZE,
+                    random_state=123,
+                    stratify=False,
+                    p1=p1, p2=p2, p3=p3,
+                    d1=D1, d2=D2, d3=D3, 
+                    robust_method=ROBUST_METHOD, alpha=ALPHA
+                )
+            
+            else:
+                clust_object = KMeans(
+                n_clusters=N_CLUSTERS
+                )
+
+            clust_object.fit(X)
+            logging.info("✅ Model fitted successfully.")
+
+        except Exception as e:
+            logging.error(f"❌ Error during model training: {e}")
+            exit()
+
+        # 4. Save Model
+        try:
+            joblib.dump(clust_object, model_save_path)
+            logging.info(f'📁 Optimal clustering model saved at {model_save_path}.')
+        except Exception as e:
+            logging.error(f"❌ Failed to save the model: {e}")
+            exit()
 
 if __name__ == "__main__":
     main()
