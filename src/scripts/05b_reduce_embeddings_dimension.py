@@ -51,7 +51,6 @@ def main():
 
     run_reduce_embedding_dimension(
         df_raw_embeddings, 
-        #N_PCA_COMPONENTS, 
         pca_embeddings_path
     ) 
 

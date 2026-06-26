@@ -64,7 +64,7 @@ def get_data_for_features_validation_analysis(df_val, val_results, feature_name,
             predicted_values_std = pl.col('predicted_values').list.std().round(2),
             predicted_values_q25 = pl.col('predicted_values').list.eval(pl.element().quantile(0.25)).list.first().round(2),
             predicted_values_q75 = pl.col('predicted_values').list.eval(pl.element().quantile(0.75)).list.first().round(2),
-            predicted_values_range = 5 - 0 
+            predicted_values_range = 2 # sentiment_score range
         ).with_columns(
             predicted_values_cv_std = (pl.col('predicted_values_std') / pl.col('predicted_values_mean').abs()).round(2).fill_nan(None),
             predicted_values_cv_quantiles = ((pl.col('predicted_values_q75') - pl.col('predicted_values_q25')) / (pl.col('predicted_values_q75') + pl.col('predicted_values_q25')).abs()).round(2).fill_nan(None),

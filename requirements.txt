@@ -7,7 +7,7 @@ scikit-learn==1.7.2
 seaborn
 matplotlib
 pyarrow
-db-robust-clust==0.1.12
+db-robust-clust==0.1.13
 kmedoids==0.5.5
 spacy
 click

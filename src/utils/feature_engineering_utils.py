@@ -1388,7 +1388,7 @@ def run_reduce_embedding_dimension(df_raw_embeddings, pca_embeddings_path):
     plt.figure(figsize=(10, 6))
     plt.plot(range(1, max_components_viz + 1), cumulative_variance, marker='o', linestyle='--')
     plt.axhline(y=0.90, color='r', linestyle=':', label='90% Variance')
-    plt.axhline(y=0.95, color='g', linestyle=':', label='95% Variance')
+    plt.axhline(y=0.50, color='g', linestyle=':', label='50% Variance')
     
     plt.title('Explained Variance vs. Number of Components')
     plt.xlabel('Number of Components')
