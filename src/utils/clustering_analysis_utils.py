@@ -940,6 +940,7 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
     ROBUST_METHOD = 'trimmed'
     ALPHA = 0.05
     FRAC_SAMPLE_SIZE = 0.15
+    RANDOM_STATE = 123
 
     p1 = len(quant_cols)
     p2 = len(binary_cols)
@@ -953,14 +954,14 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
         method=KMEDOIDS_METHOD, 
         init='build', 
         max_iter=100, 
-        random_state=123
+        random_state=RANDOM_STATE
     )
 
     clust_object = SampleDistClustering(
         clustering_method = clustering_method,
         metric = METRIC,
         frac_sample_size=FRAC_SAMPLE_SIZE,
-        random_state=123,
+        random_state=RANDOM_STATE,
         stratify=False,
         p1=p1, p2=p2, p3=p3,
         d1=D1, d2=D2, d3=D3, 
@@ -1050,8 +1051,11 @@ def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISO
     print(case_title)
     print('='*100)
 
+    RANDOM_STATE = 123
+
     clust_object = KMeans(
-        n_clusters=n_clusters
+        n_clusters=n_clusters,
+        random_state=RANDOM_STATE
     )
 
     clust_object.fit(X)

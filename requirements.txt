@@ -8,6 +8,7 @@ seaborn
 matplotlib
 pyarrow
 db-robust-clust==0.1.13
+robust-mixed-dist==0.1.26
 kmedoids==0.5.5
 spacy
 click

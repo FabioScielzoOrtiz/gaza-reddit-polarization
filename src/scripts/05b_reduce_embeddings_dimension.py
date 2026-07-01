@@ -30,10 +30,6 @@ pca_embeddings_path = os.path.join(project_path, 'data', 'features', 'embeddings
 
 # --- IMPORTS ---
 
-from config.config_05b import (    
-    N_PCA_COMPONENTS
-)
-
 from src.utils.feature_engineering_utils import run_reduce_embedding_dimension
 
 #################################################################################################
