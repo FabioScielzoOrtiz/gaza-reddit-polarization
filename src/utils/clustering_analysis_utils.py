@@ -90,7 +90,7 @@ def plot_cat_distribution(df, cat_cols, order=None, max_cols=3, palette="Set2", 
                 stat='proportion',
                 order=col_order
             )
-            ax.set_xlabel('Proporción')
+            ax.set_xlabel('Proportion')
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelsize=12)
         else:
@@ -104,7 +104,7 @@ def plot_cat_distribution(df, cat_cols, order=None, max_cols=3, palette="Set2", 
                 order=col_order
             )
             ax.set_xlabel('')
-            ax.set_ylabel('Proporción')
+            ax.set_ylabel('Proportion')
             ax.tick_params(axis='x', rotation=x_rotation, labelsize=12)
 
         ax.set_title(col.upper(), fontsize=12, fontweight='bold')
@@ -172,7 +172,7 @@ def plot_quant_distribution(df, quant_cols, max_cols=3, box_color="skyblue", his
         sns.histplot(x=serie_num, kde=True, ax=ax_hist, color=hist_color, edgecolor="black", stat='proportion')
         ax_hist.set_title('', fontsize=12, fontweight='bold')
         ax_hist.set_xlabel(col)
-        ax_hist.set_ylabel('Proporción')
+        ax_hist.set_ylabel('Proportion')
         ax_hist.tick_params(axis='x', labelsize=12)
 
     # --- 3. LIMPIEZA DE ESPACIOS VACÍOS ---
@@ -527,11 +527,11 @@ def plot_cat_comparison(df, comparisons, group_by=None, max_cols=3, title=None, 
 
         # Ajuste de etiquetas de ejes según la orientación
         if orientation == "h":
-            ax.set_xlabel("Proporción condicional")
+            ax.set_xlabel("Conditional proportion")
             ax.set_ylabel("")
         else:
             ax.set_xlabel("")
-            ax.set_ylabel("Proporción condicional")
+            ax.set_ylabel("Conditional proportion")
             
         ax.tick_params(axis='x', rotation=x_rotation, labelsize=10)
 
