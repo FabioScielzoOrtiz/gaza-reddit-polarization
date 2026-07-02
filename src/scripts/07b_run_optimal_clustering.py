@@ -85,7 +85,8 @@ def main():
         BINARY_COLS = config['binary_cols']
         MULTICLASS_COLS = config['multiclass_cols']
         N_CLUSTERS = config['n_clusters']
-        
+        RANDOM_STATE = 123
+
         if config_key != 'clust_config_III':
             KMEDOIDS_METHOD = config['kmedoids_method']
             FRAC_SAMPLE_SIZE = config['frac_sample_size']
@@ -124,14 +125,14 @@ def main():
                     method=KMEDOIDS_METHOD, 
                     init='build', 
                     max_iter=100, 
-                    random_state=123
+                    random_state=RANDOM_STATE
                 )
 
                 clust_object = SampleDistClustering(
                     clustering_method=clustering_method,
                     metric=METRIC,
                     frac_sample_size=FRAC_SAMPLE_SIZE,
-                    random_state=123,
+                    random_state=RANDOM_STATE,
                     stratify=False,
                     p1=p1, p2=p2, p3=p3,
                     d1=D1, d2=D2, d3=D3, 
@@ -140,7 +141,8 @@ def main():
             
             else:
                 clust_object = KMeans(
-                n_clusters=N_CLUSTERS
+                n_clusters=N_CLUSTERS,
+                random_state=RANDOM_STATE
                 )
 
             clust_object.fit(X)
