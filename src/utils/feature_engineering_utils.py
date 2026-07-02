@@ -1365,83 +1365,77 @@ async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_conc
 
 #################################################################################################
 
-def run_reduce_embedding_dimension(df_raw_embeddings, pca_embeddings_path): 
+def run_reduce_embedding_dimension(
+    df_raw_embeddings,
+    pca_embeddings_path,
+    variance_thresholds={
+        "50": 0.50,
+        "90": 0.90,
+    },
+):
 
-    # Convertir columna de listas polars a matriz numpy
-    embeddings_matrix = np.array(df_raw_embeddings['raw_embedding'].to_list())
+    # ==============================================================================
+    # 1. LOAD EMBEDDINGS
+    # ==============================================================================
+
+    embeddings_matrix = np.array(df_raw_embeddings["raw_embedding"].to_list())
     n_samples, n_features = embeddings_matrix.shape
-    
-    logging.info(f"📉 Analyzing PCA spectrum for {n_samples} samples with {n_features} features...")
 
-    # ==========================================================================
-    # 1. FASE DE ANÁLISIS VISUAL
-    # ==========================================================================
-    
-    max_components_viz = min(n_samples, n_features, 500) 
-    
-    pca_viz = PCA(n_components=max_components_viz)
-    pca_viz.fit(embeddings_matrix)
-    
-    cumulative_variance = np.cumsum(pca_viz.explained_variance_ratio_)
+    logging.info(
+        f"📉 Running PCA for {n_samples:,} samples and {n_features:,} embedding dimensions..."
+    )
 
-    # Generar gráfico
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(1, max_components_viz + 1), cumulative_variance, marker='o', linestyle='--')
-    plt.axhline(y=0.90, color='r', linestyle=':', label='90% Variance')
-    plt.axhline(y=0.50, color='g', linestyle=':', label='50% Variance')
-    
-    plt.title('Explained Variance vs. Number of Components')
-    plt.xlabel('Number of Components')
-    plt.ylabel('Cumulative Explained Variance')
-    plt.legend()
-    plt.grid(True)
-    
-    print("\n" + "="*60)
-    print(f"📊 GRAPH GENERATED. Close the plot window to continue.")
-    print("="*60)
-    
-    #  - Esto mostrará el gráfico y bloqueará el script hasta cerrarlo
-    plt.show() 
+    # ==============================================================================
+    # 2. FIT PCA ONCE
+    # ==============================================================================
 
-    # ==========================================================================
-    # 2. SELECCIÓN DE USUARIO
-    # ==========================================================================
-    
-    while True:
-        try:
-            user_input = input(f"\n👉 Enter the desired number of PCA components (1-{min(n_samples, n_features)}): ")
-            n_pca_components = int(user_input)
-            if 1 <= n_pca_components <= min(n_samples, n_features):
-                break
-            else:
-                print(f"❌ Invalid range. Please enter a number between 1 and {min(n_samples, n_features)}.")
-        except ValueError:
-            print("❌ Invalid input. Please enter an integer.")
+    pca = PCA()
+    transformed_embeddings = pca.fit_transform(embeddings_matrix)
 
-    # ==========================================================================
-    # 3. REDUCCIÓN FINAL Y GUARDADO
-    # ==========================================================================
+    cumulative_variance = np.cumsum(pca.explained_variance_ratio_)
 
-    logging.info(f"📉 Applying Final PCA with n_components={n_pca_components}...")
-    
-    pca_final = PCA(n_components=n_pca_components)
-    reduced_embeddings_matrix = pca_final.fit_transform(embeddings_matrix)
-    
-    final_variance = np.sum(pca_final.explained_variance_ratio_)
-    logging.info(f"📊 PCA Completed. Total Explained Variance: {final_variance:.2%}")
+    # ==============================================================================
+    # 3. INITIALIZE OUTPUT
+    # ==============================================================================
 
-    # Crear diccionario para el DataFrame
     pca_data = {
-        "comment_id": df_raw_embeddings['comment_id']
+        "comment_id": df_raw_embeddings["comment_id"]
     }
-    
-    for i in range(n_pca_components):
-        col_name = f"embedding_pca_{i+1:02d}"
-        pca_data[col_name] = reduced_embeddings_matrix[:, i]
+
+    # ==============================================================================
+    # 4. EXPORT ONE PCA SPACE PER VARIANCE THRESHOLD
+    # ==============================================================================
+
+    for suffix, threshold in variance_thresholds.items():
+
+        n_components = np.searchsorted(
+            cumulative_variance,
+            threshold
+        ) + 1
+
+        explained = cumulative_variance[n_components - 1]
+
+        logging.info(
+            f"▶ PCA {suffix}: "
+            f"{n_components} components "
+            f"(explained variance = {explained:.2%})"
+        )
+
+        reduced = transformed_embeddings[:, :n_components]
+
+        for i in range(n_components):
+            pca_data[f"embedding_pca{suffix}_{i+1:03d}"] = reduced[:, i]
+
+    # ==============================================================================
+    # 5. SAVE
+    # ==============================================================================
 
     df_embeddings_pca = pl.DataFrame(pca_data)
 
     df_embeddings_pca.write_parquet(pca_embeddings_path)
-    logging.info(f"✅ Embeddings dimension reduced to {n_pca_components} and saved.")
+
+    logging.info(
+        f"✅ PCA embeddings successfully saved to:\n{pca_embeddings_path}"
+    )
 
 #################################################################################################

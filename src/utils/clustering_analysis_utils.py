@@ -923,7 +923,172 @@ def generate_cluster_tfidf_visualizations(
 
 #########################################################################################################################################################
 
-def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, multiclass_cols, QUANT_COMPARISON_COLS, CAT_COMPARISON_COLS, CAT_COMPARISON_ORDER):
+def _cramers_v(x, y):
+    """
+    Calcula la V de Cramer entre dos variables categóricas (nominales),
+    con corrección de sesgo (Bergsma, 2013).
+    """
+    confusion_matrix = pd.crosstab(x, y)
+    chi2 = stats.chi2_contingency(confusion_matrix, correction=False)[0]
+    n = confusion_matrix.sum().sum()
+    phi2 = chi2 / n
+    r, k = confusion_matrix.shape
+
+    # Corrección de sesgo
+    phi2corr = max(0, phi2 - ((k - 1) * (r - 1)) / (n - 1))
+    rcorr = r - ((r - 1) ** 2) / (n - 1)
+    kcorr = k - ((k - 1) ** 2) / (n - 1)
+
+    denom = min((kcorr - 1), (rcorr - 1))
+    if denom <= 0:
+        return np.nan
+
+    return np.sqrt(phi2corr / denom)
+
+
+def _pairwise_association(pdf, var_types):
+    """
+    Construye una matriz de asociación entre variables mixtas, eligiendo el
+    coeficiente según el tipo de cada par de variables:
+
+      - continua-continua   -> Pearson
+      - continua-ordinal    -> Spearman
+      - ordinal-ordinal     -> Spearman
+      - nominal-nominal     -> V de Cramer
+      - nominal-otro tipo   -> V de Cramer
+
+    var_types: dict {nombre_columna: "continuous" | "ordinal" | "nominal"}
+    """
+    cols = list(pdf.columns)
+    n = len(cols)
+    corr = pd.DataFrame(np.eye(n), index=cols, columns=cols)
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            col_i, col_j = cols[i], cols[j]
+            type_i, type_j = var_types[col_i], var_types[col_j]
+
+            pair = pdf[[col_i, col_j]].dropna()
+
+            if len(pair) < 2:
+                value = np.nan
+            elif type_i == "nominal" or type_j == "nominal":
+                # nominal-nominal o nominal-cualquier otro tipo -> V de Cramer
+                value = _cramers_v(pair[col_i], pair[col_j])
+            elif type_i == "continuous" and type_j == "continuous":
+                # continua-continua -> Pearson
+                value = stats.pearsonr(pair[col_i], pair[col_j])[0]
+            else:
+                # continua-ordinal u ordinal-ordinal -> Spearman
+                value = stats.spearmanr(pair[col_i], pair[col_j])[0]
+
+            corr.loc[col_i, col_j] = value
+            corr.loc[col_j, col_i] = value
+
+    return corr
+
+
+def plot_mixed_association_heatmap(df, var_types, group_by=None, figsize=(8, 6), cmap="coolwarm",
+                                    annot=True, fmt=".2f", title=None, save_path=None):
+    """
+    Dibuja un heatmap de asociación entre un conjunto de variables de tipos mixtos,
+    eligiendo automáticamente el coeficiente adecuado para cada par de variables:
+
+        Continua - Continua  -> Pearson
+        Continua - Ordinal   -> Spearman
+        Ordinal  - Ordinal   -> Spearman
+        Nominal  - Nominal   -> V de Cramer
+        Nominal  - Otro tipo -> V de Cramer
+
+    Parámetros
+    ----------
+    df : pl.DataFrame
+        DataFrame de polars con los datos.
+    var_types : dict
+        Diccionario {nombre_columna: "continuous" | "ordinal" | "nominal"} indicando
+        el tipo de cada variable a incluir en la matriz de asociación.
+    group_by : str, opcional
+        Columna de agrupación (p.ej. 'clust_labels'). Si se indica, se genera un
+        heatmap por cada valor del grupo.
+    """
+
+    cols = list(var_types.keys())
+
+    if len(cols) == 0:
+        print("Aviso: La lista de columnas está vacía.")
+        return
+
+    valid_types = {"continuous", "ordinal", "nominal"}
+    invalid = {c: t for c, t in var_types.items() if t not in valid_types}
+    if invalid:
+        raise ValueError(f"Tipos de variable no válidos: {invalid}. Deben ser 'continuous', 'ordinal' o 'nominal'.")
+
+    if group_by is None:
+
+        pdf = df[cols].to_pandas()
+        corr = _pairwise_association(pdf, var_types)
+
+        fig, ax = plt.subplots(figsize=figsize)
+        sns.heatmap(
+            corr, annot=annot, fmt=fmt, cmap=cmap,
+            vmin=-1, vmax=1, square=True, ax=ax,
+            cbar_kws={"shrink": 0.8}
+        )
+        ax.set_title(title if title else "Association Heatmap (Pearson / Spearman / Cramer's V)", fontsize=13, fontweight='bold')
+        plt.tight_layout()
+
+        if save_path:
+            fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+
+        plt.show()
+
+    else:
+
+        group_vals = df[group_by].drop_nulls().unique().sort().to_list()
+        n_groups = len(group_vals)
+
+        n_cols_fig = min(n_groups, 2)
+        n_rows_fig = math.ceil(n_groups / n_cols_fig)  
+
+        fig, axes = plt.subplots(nrows=n_rows_fig, ncols=n_cols_fig, figsize=(figsize[0]*n_cols_fig, figsize[1]*n_rows_fig))
+
+        if n_rows_fig == 1 and n_cols_fig == 1:
+            axes = np.array([[axes]])
+        elif n_rows_fig == 1:
+            axes = axes.reshape(1, -1)
+        elif n_cols_fig == 1:
+            axes = axes.reshape(-1, 1)
+
+        for i, gval in enumerate(group_vals):
+            r, c = divmod(i, n_cols_fig)
+            ax = axes[r, c]
+
+            pdf_group = df.filter(pl.col(group_by) == gval)[cols].to_pandas()
+            corr = _pairwise_association(pdf_group, var_types)
+
+            sns.heatmap(
+                corr, annot=annot, fmt=fmt, cmap=cmap,
+                vmin=-1, vmax=1, square=True, ax=ax,
+                cbar_kws={"shrink": 0.8}
+            )
+            ax.set_title(f"{group_by} = {gval}", fontsize=12, fontweight='bold')
+
+        total_blocks = n_rows_fig * n_cols_fig
+        for i in range(n_groups, total_blocks):
+            r, c = divmod(i, n_cols_fig)
+            fig.delaxes(axes[r, c])
+
+        plt.suptitle(title if title else "Association Heatmap by Cluster (Pearson / Spearman / Cramer's V)", fontsize=15, y=1.02)
+        plt.tight_layout()
+
+        if save_path:
+            fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
+
+        plt.show()
+
+#########################################################################################################################################################
+
+def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, multiclass_cols, QUANT_COMPARISON_COLS, CAT_COMPARISON_COLS, CAT_COMPARISON_ORDER, ASSOCIATION_VAR_TYPES=None):
     
     case_title = f'SampleDistClustering-KMedoids-PAM - k={n_clusters}'
 
@@ -1032,6 +1197,17 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
 
     ##################################################################################################
 
+    if ASSOCIATION_VAR_TYPES:
+        
+        plot_mixed_association_heatmap(
+            df=data,
+            var_types=ASSOCIATION_VAR_TYPES,
+            group_by="clust_labels",
+            title="Association Heatmap (Pearson / Spearman / Cramer's V) by Cluster\n",
+        )
+
+    ##################################################################################################
+
     medoid_and_knn_by_cluster = get_medoid_and_knn_by_cluster(clust_object,dist_matrix=D, knn_k=10)
 
     for cluster_label in np.unique(clust_object.labels_):
@@ -1043,7 +1219,7 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
 
 ####################################################################################################################################################################################################
 
-def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISON_COLS, CAT_COMPARISON_ORDER):
+def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISON_COLS, CAT_COMPARISON_ORDER, ASSOCIATION_VAR_TYPES=None):
     
     case_title = f'KMeans - k={n_clusters}'
 
@@ -1118,5 +1294,16 @@ def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISO
         orientation='h',
         order=CAT_COMPARISON_ORDER
     )
+
+    ##################################################################################################
+
+    if ASSOCIATION_VAR_TYPES:
+        
+        plot_mixed_association_heatmap(
+            df=data,
+            var_types=ASSOCIATION_VAR_TYPES,
+            group_by="clust_labels",
+            title="Association Heatmap (Pearson / Spearman / Cramer's V) by Cluster\n",
+        )
 
 ####################################################################################################################################################################################################

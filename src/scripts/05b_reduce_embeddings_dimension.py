@@ -31,6 +31,7 @@ pca_embeddings_path = os.path.join(project_path, 'data', 'features', 'embeddings
 # --- IMPORTS ---
 
 from src.utils.feature_engineering_utils import run_reduce_embedding_dimension
+from config.config_05b import VARIANCE_THRESHOLDS
 
 #################################################################################################
 
@@ -46,9 +47,10 @@ def main():
         exit()
 
     run_reduce_embedding_dimension(
-        df_raw_embeddings, 
-        pca_embeddings_path
-    ) 
+        df_raw_embeddings,
+        pca_embeddings_path,
+        variance_thresholds=VARIANCE_THRESHOLDS
+    )
 
 if __name__ == "__main__":
     main()
