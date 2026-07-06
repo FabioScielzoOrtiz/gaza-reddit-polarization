@@ -85,9 +85,9 @@ def main():
         BINARY_COLS = config['binary_cols']
         MULTICLASS_COLS = config['multiclass_cols']
         N_CLUSTERS = config['n_clusters']
-        RANDOM_STATE = 123
+        RANDOM_STATE = config['random_state']
 
-        if config_key != 'clust_config_III':
+        if config_key not in ['clust_config_III', 'clust_config_III_b']:
             KMEDOIDS_METHOD = config['kmedoids_method']
             FRAC_SAMPLE_SIZE = config['frac_sample_size']
             METRIC = config['metric']
@@ -100,7 +100,7 @@ def main():
         # 2. Configure Features and Parameters
         try:
             
-            if config_key != 'clust_config_III':
+            if config_key not in ['clust_config_III', 'clust_config_III_b']:
                 p1 = len(QUANT_COLS)
                 p2 = len(BINARY_COLS)
                 p3 = len(MULTICLASS_COLS)
@@ -117,7 +117,7 @@ def main():
         try:
             logging.info("Initializing and fitting SampleDistClustering model. This may take a while...")
             
-            if config_key != 'clust_config_III':
+            if config_key not in ['clust_config_III', 'clust_config_III_b']:
 
                 clustering_method = KMedoids(
                     n_clusters=N_CLUSTERS, 

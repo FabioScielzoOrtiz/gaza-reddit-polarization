@@ -31,7 +31,8 @@ clust_config_metadata = {
         'd3': 'hamming',
         'robust_method': 'trimmed',
         'alpha': 0.05,
-        'frac_sample_size': 0.15
+        'frac_sample_size': 0.15,
+        'random_state': 123
     },
 
     'clust_config_II': {
@@ -48,14 +49,16 @@ clust_config_metadata = {
         'd3': 'hamming',
         'robust_method': 'trimmed',
         'alpha': 0.05,
-        'frac_sample_size': 0.15 
+        'frac_sample_size': 0.15,
+        'random_state': 123
     },
 
     'clust_config_III': {
         'quant_cols':  embeddings_cols_50,
         'binary_cols': [],
         'multiclass_cols': [],
-        'n_clusters': 4,        
+        'n_clusters': 4,   
+        'random_state': 123     
     },
 
     'clust_config_III_b': {
@@ -64,7 +67,7 @@ clust_config_metadata = {
         'binary_cols': [],
         'multiclass_cols': [],
         'n_clusters': 4,
-
+        'random_state': 123
     },
 
 }
