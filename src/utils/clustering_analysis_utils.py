@@ -1140,7 +1140,7 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
     ##################################################################################################
     
     D, D1, D2, D3 = clust_object.dist_output
-    '''
+    
     sample_idx = clust_object.sample_idx
 
     n_reduced = 2000
@@ -1157,7 +1157,7 @@ def get_SampleDistClustering_results(n_clusters, data, quant_cols, binary_cols, 
                                 title_size=13, title_weight='bold', 
                                 points_size=45, title_height=1, 
                                 save=False, legend_size=9)
-    '''
+
     ##################################################################################################
 
     data = data.with_columns(
@@ -1241,7 +1241,6 @@ def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISO
 
     ##################################################################################################
     
-    '''
     n_reduced = 2000
     
     D = euclidean_dist_matrix(X[:n_reduced,:])
@@ -1258,7 +1257,6 @@ def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISO
                                 title_size=13, title_weight='bold', 
                                 points_size=45, title_height=1, 
                                 save=False, legend_size=9)
-    '''
     
     ##################################################################################################
 
