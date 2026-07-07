@@ -1084,29 +1084,11 @@ def _pairwise_association(pdf, var_types):
 
     return corr
 
-
 def plot_mixed_association_heatmap(df, var_types, group_by=None, figsize=(8, 6), cmap="coolwarm",
-                                    annot=True, fmt=".2f", title=None, save_path=None):
+                                   annot=True, fmt=".2f", title=None, save_path=None):
     """
     Dibuja un heatmap de asociación entre un conjunto de variables de tipos mixtos,
-    eligiendo automáticamente el coeficiente adecuado para cada par de variables:
-
-        Continua - Continua  -> Pearson
-        Continua - Ordinal   -> Spearman
-        Ordinal  - Ordinal   -> Spearman
-        Nominal  - Nominal   -> V de Cramer
-        Nominal  - Otro tipo -> V de Cramer
-
-    Parámetros
-    ----------
-    df : pl.DataFrame
-        DataFrame de polars con los datos.
-    var_types : dict
-        Diccionario {nombre_columna: "continuous" | "ordinal" | "nominal"} indicando
-        el tipo de cada variable a incluir en la matriz de asociación.
-    group_by : str, opcional
-        Columna de agrupación (p.ej. 'clust_labels'). Si se indica, se genera un
-        heatmap por cada valor del grupo.
+    eligiendo automáticamente el coeficiente adecuado para cada par de variables.
     """
 
     cols = list(var_types.keys())
@@ -1129,10 +1111,16 @@ def plot_mixed_association_heatmap(df, var_types, group_by=None, figsize=(8, 6),
         sns.heatmap(
             corr, annot=annot, fmt=fmt, cmap=cmap,
             vmin=-1, vmax=1, square=True, ax=ax,
-            cbar_kws={"shrink": 0.8}
+            cbar_kws={"shrink": 0.8},
+            annot_kws={"size": 11}  # <-- Aumenta el tamaño de los números internos
         )
+        
+        # Aumentar tamaño de variables y rotar el eje X
+        ax.tick_params(axis='y', labelsize=11)
+        plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=11)
+        
         ax.set_title(title if title else "Association Heatmap (Pearson / Spearman / Cramer's V)", fontsize=13, fontweight='bold')
-        plt.tight_layout()
+        fig.tight_layout()
 
         if save_path:
             fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
@@ -1166,8 +1154,14 @@ def plot_mixed_association_heatmap(df, var_types, group_by=None, figsize=(8, 6),
             sns.heatmap(
                 corr, annot=annot, fmt=fmt, cmap=cmap,
                 vmin=-1, vmax=1, square=True, ax=ax,
-                cbar_kws={"shrink": 0.8}
+                cbar_kws={"shrink": 0.8},
+                annot_kws={"size": 10}  # <-- Aumenta el tamaño de los números internos en subfiguras
             )
+            
+            # Aumentar tamaño de variables y rotar eje X en cada subfigura
+            ax.tick_params(axis='y', labelsize=10)
+            plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=10)
+            
             ax.set_title(f"{group_by} = {gval}", fontsize=12, fontweight='bold')
 
         total_blocks = n_rows_fig * n_cols_fig
@@ -1175,8 +1169,11 @@ def plot_mixed_association_heatmap(df, var_types, group_by=None, figsize=(8, 6),
             r, c = divmod(i, n_cols_fig)
             fig.delaxes(axes[r, c])
 
-        plt.suptitle(title if title else "Association Heatmap by Cluster (Pearson / Spearman / Cramer's V)", fontsize=15, y=1.02)
-        plt.tight_layout()
+        plt.suptitle(title if title else "Association Heatmap by Cluster (Pearson / Spearman / Cramer's V)", fontsize=15, y=0.98)
+        
+        # Reducción de espacio entre subfiguras
+        fig.tight_layout(h_pad=1.0, w_pad=1.0) 
+        fig.subplots_adjust(wspace=0.15, hspace=0.32) # <-- Control fino del espacio horizontal (wspace) y vertical (hspace)
 
         if save_path:
             fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
