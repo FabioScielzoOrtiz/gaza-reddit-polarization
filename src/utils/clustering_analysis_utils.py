@@ -18,6 +18,10 @@ from scipy import stats
 import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer
 from wordcloud import WordCloud
+from dataclasses import dataclass, field
+from typing import Literal, Sequence
+import pandas as pd
+from scipy import stats
 
 sns.set_style('whitegrid')
 
@@ -1179,6 +1183,448 @@ def plot_mixed_association_heatmap(df, var_types, group_by=None, figsize=(8, 6),
             fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
 
         plt.show()
+
+#########################################################################################################################################################
+
+VariableType = Literal["ordinal", "nominal"]
+
+@dataclass
+class VariableSeparability:
+    """Separability result for a single variable."""
+    variable: str
+    var_type: VariableType
+    metric_name: str          # "epsilon_squared" or "cramers_v"
+    value: float               # in [0, 1]
+    stat: float                 # underlying test statistic (H or chi2)
+    p_value: float
+    n_obs: int
+    n_groups: int
+
+
+@dataclass
+class ConfigSeparability:
+    """Aggregated separability result for a full clustering configuration."""
+    config_name: str
+    per_variable: list[VariableSeparability] = field(default_factory=list)
+
+    @property
+    def separability_index(self) -> float:
+        """Unweighted mean of per-variable separability values (in [0, 1])."""
+        if not self.per_variable:
+            return float("nan")
+        return float(np.mean([v.value for v in self.per_variable]))
+
+    def weighted_separability_index(self, weights: dict[str, float]) -> float:
+        """
+        Weighted mean, e.g. if some variables matter more substantively.
+        `weights` maps variable name -> weight (need not sum to 1; normalized
+        internally). Variables absent from `weights` get weight 0.
+        """
+        vals, ws = [], []
+        for v in self.per_variable:
+            w = weights.get(v.variable, 0.0)
+            if w > 0:
+                vals.append(v.value)
+                ws.append(w)
+        if not ws:
+            return float("nan")
+        ws = np.array(ws) / np.sum(ws)
+        return float(np.dot(vals, ws))
+
+    def to_frame(self) -> pd.DataFrame:
+        """Tidy dataframe, one row per variable, for reporting/plotting."""
+        rows = [
+            {
+                "config": self.config_name,
+                "variable": v.variable,
+                "type": v.var_type,
+                "metric": v.metric_name,
+                "value": v.value,
+                "stat": v.stat,
+                "p_value": v.p_value,
+                "n_obs": v.n_obs,
+                "n_groups": v.n_groups,
+            }
+            for v in self.per_variable
+        ]
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _effect_size_label(value: float) -> str:
+        """Cohen-style qualitative label for eta-squared/Cramer's-V-scale effect sizes."""
+        if value >= 0.14:
+            return "large"
+        elif value >= 0.06:
+            return "medium"
+        elif value >= 0.01:
+            return "small"
+        return "negligible"
+
+    @staticmethod
+    def _p_stars(p: float) -> str:
+        if p < 0.001:
+            return "***"
+        elif p < 0.01:
+            return "**"
+        elif p < 0.05:
+            return "*"
+        return ""
+
+    def summary(self) -> str:
+        """
+        Plain-text, notebook-friendly summary table: one row per variable
+        (metric, value, effect-size label, significance stars) plus the
+        aggregated separability index at the bottom. Use inside `print()`.
+        """
+        if not self.per_variable:
+            return f"ConfigSeparability('{self.config_name}'): no variables computed."
+
+        rows = sorted(self.per_variable, key=lambda v: v.value, reverse=True)
+
+        name_w = max(len(v.variable) for v in rows) + 2
+        header = (
+            f"{'Variable':<{name_w}} {'Metric':<16} {'Value':>7} "
+            f"{'Effect':<11} {'p-value':>10} {'n':>7} {'k':>3}"
+        )
+        sep = "-" * len(header)
+
+        lines = [
+            f"Separability report — {self.config_name}",
+            sep,
+            header,
+            sep,
+        ]
+        for v in rows:
+            stars = self._p_stars(v.p_value)
+            p_str = f"{v.p_value:.2e}{stars}" if v.p_value < 0.0001 else f"{v.p_value:.4f}{stars}"
+            lines.append(
+                f"{v.variable:<{name_w}} {v.metric_name:<16} {v.value:>7.3f} "
+                f"{self._effect_size_label(v.value):<11} {p_str:>10} {v.n_obs:>7} {v.n_groups:>3}"
+            )
+        lines.append(sep)
+        lines.append(
+            f"{'SEPARABILITY INDEX (mean)':<{name_w + 16}} {self.separability_index:>7.3f} "
+            f"{self._effect_size_label(self.separability_index):<11}"
+        )
+        lines.append("(significance: * p<.05  ** p<.01  *** p<.001)")
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+    def _repr_html_(self) -> str:
+        """
+        Rich HTML rendering for Jupyter: automatically shown when the
+        object is the last expression in a cell (e.g. just `result_I`),
+        no print() needed. Falls back gracefully if pandas Styler is
+        unavailable for any reason.
+        """
+        if not self.per_variable:
+            return f"<b>ConfigSeparability('{self.config_name}')</b>: no variables computed."
+
+        df = self.to_frame().sort_values("value", ascending=False).reset_index(drop=True)
+        df["effect_size"] = df["value"].apply(self._effect_size_label)
+        df["sig"] = df["p_value"].apply(self._p_stars)
+        df = df[["variable", "type", "metric", "value", "effect_size", "p_value", "sig", "n_obs", "n_groups"]]
+
+        idx_val = self.separability_index
+        idx_label = self._effect_size_label(idx_val)
+
+        styler = (
+            df.style
+            .background_gradient(subset=["value"], cmap="Greens", vmin=0, vmax=1)
+            .format({"value": "{:.3f}", "p_value": "{:.2e}"})
+            .hide(axis="index")
+            .set_caption(
+                f"<b>Separability report — {self.config_name}</b> "
+                f"&nbsp;|&nbsp; Separability Index = <b>{idx_val:.3f}</b> ({idx_label})"
+            )
+            .set_table_styles([
+                {"selector": "caption", "props": [("caption-side", "top"),
+                                                    ("font-size", "1.05em"),
+                                                    ("padding-bottom", "8px")]},
+                {"selector": "th", "props": [("text-align", "center")]},
+                {"selector": "td", "props": [("text-align", "center")]},
+            ])
+        )
+        return styler.to_html()
+
+
+def epsilon_squared_kruskal(values: np.ndarray, groups: np.ndarray) -> VariableSeparability:
+    """
+    Rank-based effect size (epsilon-squared) for an ordinal/quantitative
+    variable across k groups (cluster labels), derived from the
+    Kruskal-Wallis H statistic:
+
+        epsilon^2 = (H - k + 1) / (n - k)
+
+    This is the non-parametric analogue of eta-squared from a one-way
+    ANOVA, and is preferred over eta-squared here because the discursive
+    variables (e.g. political_stance_score, argument_quality_score) are
+    ordinal/discrete Likert-type scales rather than continuous normal
+    variables.
+
+    Negative values (which can occur when H is close to its null-expected
+    value under small samples) are clipped to 0, since epsilon-squared has
+    no meaningful negative interpretation.
+    """
+    values = np.asarray(values)
+    groups = np.asarray(groups)
+
+    mask = ~pd.isna(values) & ~pd.isna(groups)
+    values, groups = values[mask], groups[mask]
+
+    unique_groups = np.unique(groups)
+    k = len(unique_groups)
+    n = len(values)
+
+    samples = [values[groups == g] for g in unique_groups]
+    H, p = stats.kruskal(*samples)
+
+    eps2 = (H - k + 1) / (n - k)
+    eps2 = float(np.clip(eps2, 0.0, 1.0))
+
+    return VariableSeparability(
+        variable="",  # filled by caller
+        var_type="ordinal",
+        metric_name="epsilon_squared",
+        value=eps2,
+        stat=float(H),
+        p_value=float(p),
+        n_obs=n,
+        n_groups=k,
+    )
+
+
+def cramers_v(categories: np.ndarray, groups: np.ndarray) -> VariableSeparability:
+    """
+    Cramer's V for the association between a nominal categorical variable
+    and cluster membership, derived from a chi-square test of independence
+    on the contingency table (cluster label x category).
+
+    V = sqrt( (chi2 / n) / min(k - 1, r - 1) )
+
+    where k = number of clusters, r = number of categories.
+
+    Uses the bias correction of Bergsma (2013), which is preferred over the
+    raw Cramer's V because the raw statistic is known to be upward-biased,
+    especially with small samples or many categories/clusters.
+    """
+    categories = np.asarray(categories)
+    groups = np.asarray(groups)
+
+    mask = ~pd.isna(categories) & ~pd.isna(groups)
+    categories, groups = categories[mask], groups[mask]
+
+    contingency = pd.crosstab(groups, categories)
+    chi2, p, dof, _ = stats.chi2_contingency(contingency)
+    n = contingency.to_numpy().sum()
+    r, k = contingency.shape
+
+    # Bias-corrected Cramer's V (Bergsma, 2013)
+    phi2 = chi2 / n
+    phi2_corr = max(0.0, phi2 - (r - 1) * (k - 1) / (n - 1))
+    r_corr = r - (r - 1) ** 2 / (n - 1)
+    k_corr = k - (k - 1) ** 2 / (n - 1)
+    denom = min(r_corr - 1, k_corr - 1)
+
+    v = float(np.sqrt(phi2_corr / denom)) if denom > 0 else 0.0
+    v = float(np.clip(v, 0.0, 1.0))
+
+    return VariableSeparability(
+        variable="",  # filled by caller
+        var_type="nominal",
+        metric_name="cramers_v",
+        value=v,
+        stat=float(chi2),
+        p_value=float(p),
+        n_obs=int(n),
+        n_groups=r,
+    )
+
+
+def compute_config_separability(
+    data: pd.DataFrame,
+    cluster_col: str,
+    numeric_vars: Sequence[str] = (),
+    nominal_vars: Sequence[str] = (),
+    config_name: str = "",
+) -> ConfigSeparability:
+    """
+    Main entry point: computes per-variable separability (rank-based
+    epsilon-squared for numeric vars -- continuous OR ordinal-discrete --
+    and Cramer's V for nominal vars) and returns a ConfigSeparability object
+    exposing an aggregated `.separability_index` comparable across
+    configurations, analogous to how silhouette scores are already
+    compared.
+
+    IMPORTANT: pass continuous variables (e.g. sentiment_score) in their
+    native continuous form, NOT a categorized/binned version. Kruskal-Wallis
+    -based epsilon-squared works directly on continuous data (it only needs
+    to rank observations) and does not require discretizing first.
+    Categorizing a continuous variable before this test throws away
+    information and tends to *understate* true separation. It would also be
+    inconsistent with the clustering pipeline itself, where sentiment_score
+    enters the d1 (Mahalanobis) subspace as a continuous variable in both
+    Config I and Config II.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Must contain `cluster_col` and all variables listed in
+        `numeric_vars` / `nominal_vars`.
+    cluster_col : str
+        Column with the cluster label for this configuration
+        (e.g. "clust_label_I", "clust_label_III").
+    numeric_vars : sequence of str
+        Continuous or ordinal-discrete discursive variables, e.g.
+        ["sentiment_score", "political_stance_score", "argument_quality_score"].
+        Use each variable's native scale; do not pre-bin continuous ones.
+    nominal_vars : sequence of str
+        Nominal categorical discursive variables, e.g.
+        ["discourse_tone_score", "dominant_frame_score"] (move a variable
+        here only if it is genuinely unordered; otherwise keep it under
+        `numeric_vars`, since epsilon-squared also handles ordinal-discrete
+        data correctly).
+    config_name : str
+        Label for the configuration, used in the returned object and in
+        `.to_frame()` for easy concatenation across configs.
+
+    Returns
+    -------
+    ConfigSeparability
+        .separability_index -> single aggregated number in [0, 1]
+        .per_variable        -> list of per-variable results
+        .to_frame()           -> tidy DataFrame for reporting/plotting
+        .summary()            -> pretty printable text summary
+        (also renders as a styled HTML table automatically in Jupyter)
+
+    Example
+    -------
+    >>> result_I = compute_config_separability(
+    ...     data=df,
+    ...     cluster_col="clust_label_I",
+    ...     numeric_vars=["sentiment_score", "political_stance_score", "argument_quality_score"],
+    ...     nominal_vars=["discourse_tone_score", "dominant_frame_score"],
+    ...     config_name="Config I",
+    ... )
+    >>> result_I  # in a notebook cell: renders a styled HTML table
+    >>> print(result_I.summary())  # plain-text version
+    """
+    groups = data[cluster_col].to_numpy()
+    per_variable: list[VariableSeparability] = []
+
+    for var in numeric_vars:
+        res = epsilon_squared_kruskal(data[var].to_numpy(), groups)
+        res.variable = var
+        per_variable.append(res)
+
+    for var in nominal_vars:
+        res = cramers_v(data[var].to_numpy(), groups)
+        res.variable = var
+        per_variable.append(res)
+
+    return ConfigSeparability(config_name=config_name, per_variable=per_variable)
+
+
+def style_separability_summary(summary: pd.DataFrame) -> "pd.io.formats.style.Styler":
+    """
+    Applies a green color gradient to a separability summary table
+    (config vs separability_index), matching the same visual style used
+    by ConfigSeparability._repr_html_. Returns a pandas Styler, which
+    renders automatically as the last expression in a Jupyter cell.
+    """
+    vmax = max(float(summary["separability_index"].max()), 0.3)
+
+    styler = (
+        summary.style
+        .format({"separability_index": "{:.3f}"})
+        .background_gradient(subset=["separability_index"], cmap="Greens", vmin=0, vmax=vmax)
+        .hide(axis="index")
+        .set_caption("<b>Separability Index comparison across configurations</b>")
+        .set_table_styles([
+            {"selector": "caption", "props": [("caption-side", "top"),
+                                                ("font-size", "1.05em"),
+                                                ("padding-bottom", "8px")]},
+            {"selector": "th", "props": [("text-align", "center")]},
+            {"selector": "td", "props": [("text-align", "center")]},
+        ])
+    )
+    return styler
+
+
+def compare_configs_separability(
+    results: Sequence[ConfigSeparability],
+) -> tuple[pd.DataFrame, pd.DataFrame, "pd.io.formats.style.Styler"]:
+    """
+    Convenience function: stacks several ConfigSeparability results (one per
+    configuration) into a single tidy comparison table, a summary table
+    with the aggregated separability_index per configuration, and a
+    color-styled version of that summary ready to display in a notebook
+    cell (green gradient, same visual style as ConfigSeparability's own
+    HTML repr).
+
+    Intended to sit next to your existing silhouette comparison table, so
+    both can be reported side by side in the same section of the paper.
+
+    Returns
+    -------
+    long_df : pd.DataFrame
+        One row per (config, variable) -- the full detail table.
+    summary : pd.DataFrame
+        One row per config -- plain DataFrame, sorted descending by
+        separability_index (use this for further computation/export).
+    summary_styled : pandas Styler
+        Same data as `summary`, with a green color gradient applied.
+        Just put it as the last line of a notebook cell to render it:
+            long_df, summary, summary_styled = compare_configs_separability([...])
+            summary_styled
+    """
+    long_df = pd.concat([r.to_frame() for r in results], ignore_index=True)
+
+    summary = (
+        pd.DataFrame(
+            {
+                "config": [r.config_name for r in results],
+                "separability_index": [r.separability_index for r in results],
+            }
+        )
+        .sort_values("separability_index", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    summary_styled = style_separability_summary(summary)
+
+    return long_df, summary, summary_styled
+
+#########################################################################################################################################################
+
+def show_silhouette_table(silhouette_dict: dict[str, float]) -> None:
+    """
+    silhouette_dict: {'Config I': 0.22, 'Config II': 0.071, 'Config III': 0.073, 'Config III-b': 0.031}
+    """
+    df = (
+        pd.DataFrame({
+            'config': list(silhouette_dict.keys()),
+            'silhouette': list(silhouette_dict.values()),
+        })
+        .sort_values('silhouette', ascending=False)
+        .reset_index(drop=True)
+    )
+
+    styler = (
+        df.style
+        .format({'silhouette': '{:.3f}'})
+        .background_gradient(subset=['silhouette'], cmap='Greens', vmin=0, vmax=max(df['silhouette'].max(), 0.3))
+        .hide(axis='index')
+        .set_caption('<b>Silhouette score comparison</b>')
+        .set_table_styles([
+            {'selector': 'caption', 'props': [('caption-side', 'top'), ('font-size', '1.05em'), ('padding-bottom', '8px')]},
+            {'selector': 'th', 'props': [('text-align', 'center')]},
+            {'selector': 'td', 'props': [('text-align', 'center')]},
+        ])
+    )
+    return styler  # última línea de celda -> se renderiza sola
 
 #########################################################################################################################################################
 
