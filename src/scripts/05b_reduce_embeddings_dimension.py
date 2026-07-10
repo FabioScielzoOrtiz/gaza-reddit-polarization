@@ -25,6 +25,7 @@ raw_embeddings_path = os.path.join(project_path, 'data', 'features', 'embeddings
 
 # Output Final: Features reducidas con PCA
 pca_embeddings_path = os.path.join(project_path, 'data', 'features', 'embeddings_pca.parquet')
+variance_plot_path = os.path.join(project_path, 'data', 'features', 'embeddings_variance_pca_plot.png')
 
 #################################################################################################
 
@@ -49,7 +50,8 @@ def main():
     run_reduce_embedding_dimension(
         df_raw_embeddings,
         pca_embeddings_path,
-        variance_thresholds=VARIANCE_THRESHOLDS
+        variance_plot_path,
+        variance_thresholds=VARIANCE_THRESHOLDS,
     )
 
 if __name__ == "__main__":

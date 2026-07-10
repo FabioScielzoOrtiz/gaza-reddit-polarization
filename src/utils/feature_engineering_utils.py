@@ -1368,10 +1368,12 @@ async def run_embedding_generation(raw_embeddings_path, df, batch_size, max_conc
 def run_reduce_embedding_dimension(
     df_raw_embeddings,
     pca_embeddings_path,
+    variance_plot_path,
     variance_thresholds={
         "50": 0.50,
         "90": 0.90,
     },
+    n_components_plot=700,
 ):
 
     # ==============================================================================
@@ -1395,7 +1397,45 @@ def run_reduce_embedding_dimension(
     cumulative_variance = np.cumsum(pca.explained_variance_ratio_)
 
     # ==============================================================================
-    # 3. INITIALIZE OUTPUT
+    # 3. PLOT EXPLAINED VARIANCE VS. NUMBER OF COMPONENTS
+    # ==============================================================================
+
+    n_plot = min(n_components_plot, len(cumulative_variance))
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.scatter(
+        np.arange(1, n_plot + 1),
+        cumulative_variance[:n_plot],
+        s=15,
+    )
+
+    color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for i, (suffix, threshold) in enumerate(variance_thresholds.items()):
+        ax.axhline(
+            y=threshold,
+            linestyle=":",
+            linewidth=1.5,
+            label=f"{suffix}% Variance",
+            color=color_cycle[i % len(color_cycle)],
+        )
+
+    ax.set_title("Explained Variance vs. Number of Components")
+    ax.set_xlabel("Number of Components")
+    ax.set_ylabel("Cumulative Explained Variance")
+    ax.grid(True, alpha=0.5)
+    ax.legend(loc="lower right")
+
+    fig.tight_layout()
+    fig.savefig(variance_plot_path, dpi=150)
+    plt.close(fig)
+
+    logging.info(
+        f"📊 Explained variance plot saved to:\n{variance_plot_path}"
+    )
+
+    # ==============================================================================
+    # 4. INITIALIZE OUTPUT
     # ==============================================================================
 
     pca_data = {
@@ -1403,7 +1443,7 @@ def run_reduce_embedding_dimension(
     }
 
     # ==============================================================================
-    # 4. EXPORT ONE PCA SPACE PER VARIANCE THRESHOLD
+    # 5. EXPORT ONE PCA SPACE PER VARIANCE THRESHOLD
     # ==============================================================================
 
     for suffix, threshold in variance_thresholds.items():
@@ -1427,7 +1467,7 @@ def run_reduce_embedding_dimension(
             pca_data[f"embedding_pca{suffix}_{i+1:03d}"] = reduced[:, i]
 
     # ==============================================================================
-    # 5. SAVE
+    # 6. SAVE
     # ==============================================================================
 
     df_embeddings_pca = pl.DataFrame(pca_data)
