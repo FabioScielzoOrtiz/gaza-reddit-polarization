@@ -87,7 +87,7 @@ def main():
         N_CLUSTERS = config['n_clusters']
         RANDOM_STATE = config['random_state']
 
-        if config_key not in ['clust_config_III', 'clust_config_III_b']:
+        if config_key not in ['clust_config_I_b', 'clust_config_III', 'clust_config_III_b']:
             KMEDOIDS_METHOD = config['kmedoids_method']
             FRAC_SAMPLE_SIZE = config['frac_sample_size']
             METRIC = config['metric']
@@ -96,17 +96,14 @@ def main():
             D3 = config['d3']
             ROBUST_METHOD = config['robust_method']
             ALPHA = config['alpha']
+            p1 = len(QUANT_COLS)
+            p2 = len(BINARY_COLS)
+            p3 = len(MULTICLASS_COLS)
 
         # 2. Configure Features and Parameters
         try:
             
-            if config_key not in ['clust_config_III', 'clust_config_III_b']:
-                p1 = len(QUANT_COLS)
-                p2 = len(BINARY_COLS)
-                p3 = len(MULTICLASS_COLS)
-
             X = processed_data.select(QUANT_COLS + BINARY_COLS + MULTICLASS_COLS)
-            
             logging.info(f"Features extracted and configured successfully. Shape of X: {X.shape}.")
 
         except Exception as e:
@@ -117,7 +114,7 @@ def main():
         try:
             logging.info("Initializing and fitting SampleDistClustering model. This may take a while...")
             
-            if config_key not in ['clust_config_III', 'clust_config_III_b']:
+            if config_key not in ['clust_config_I_b', 'clust_config_III', 'clust_config_III_b']:
 
                 clustering_method = KMedoids(
                     n_clusters=N_CLUSTERS, 

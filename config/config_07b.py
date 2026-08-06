@@ -35,6 +35,15 @@ clust_config_metadata = {
         'random_state': 123
     },
 
+    'clust_config_I_b': {
+        'quant_cols':  ['sentiment_score'] # numerical_cols
+                    +  ['argument_quality_score', 'political_stance_score'], # ordinal_cols
+        'binary_cols': [],
+        'multiclass_cols': ['discourse_tone_score', 'dominant_frame_score'], # nominal_cols         
+        'n_clusters': 4,
+        'random_state': 123  
+    },
+
     'clust_config_II': {
         'quant_cols':  ['sentiment_score'] # numerical_cols
                     +  embeddings_cols_50,
