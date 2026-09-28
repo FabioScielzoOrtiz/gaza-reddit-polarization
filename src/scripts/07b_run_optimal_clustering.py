@@ -50,6 +50,9 @@ os.makedirs(models_dir, exist_ok=True)
 
 sys.path.append(project_path)
 from config.config_07b import clust_config_metadata
+from src.utils.clustering_analysis_utils import build_kmeans_input
+
+KMEANS_CONFIGS = ['clust_config_I_b', 'clust_config_III', 'clust_config_III_b']
 
 #################################################################################################
 
@@ -87,7 +90,7 @@ def main():
         N_CLUSTERS = config['n_clusters']
         RANDOM_STATE = config['random_state']
 
-        if config_key not in ['clust_config_I_b', 'clust_config_III', 'clust_config_III_b']:
+        if config_key not in KMEANS_CONFIGS:
             KMEDOIDS_METHOD = config['kmedoids_method']
             FRAC_SAMPLE_SIZE = config['frac_sample_size']
             METRIC = config['metric']
@@ -102,19 +105,20 @@ def main():
 
         # 2. Configure Features and Parameters
         try:
-            
-            X = processed_data.select(QUANT_COLS + BINARY_COLS + MULTICLASS_COLS)
+            if config_key in KMEANS_CONFIGS:
+                X = build_kmeans_input(processed_data, config)
+            else:
+                X = processed_data.select(QUANT_COLS + BINARY_COLS + MULTICLASS_COLS)
             logging.info(f"Features extracted and configured successfully. Shape of X: {X.shape}.")
-
         except Exception as e:
             logging.error(f"❌ Error during feature configuration: {e}")
             exit()
 
         # 3. Train Clustering Model
         try:
-            logging.info("Initializing and fitting SampleDistClustering model. This may take a while...")
+            logging.info("Initializing and fitting clustering model. This may take a while...")
             
-            if config_key not in ['clust_config_I_b', 'clust_config_III', 'clust_config_III_b']:
+            if config_key not in KMEANS_CONFIGS:
 
                 clustering_method = KMedoids(
                     n_clusters=N_CLUSTERS, 

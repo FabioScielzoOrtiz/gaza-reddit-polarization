@@ -36,12 +36,13 @@ clust_config_metadata = {
     },
 
     'clust_config_I_b': {
-        'quant_cols':  ['sentiment_score'] # numerical_cols
-                    +  ['argument_quality_score', 'political_stance_score'], # ordinal_cols
+        'quant_cols':  ['sentiment_score']                                    # numerical_cols
+                    +  ['argument_quality_score', 'political_stance_score'],  # ordinal_cols (as coded)
         'binary_cols': [],
-        'multiclass_cols': ['discourse_tone_score', 'dominant_frame_score'], # nominal_cols         
+        'multiclass_cols': [],                                                # nominals go one-hot, see below
+        'one_hot_cols': ['discourse_tone_score', 'dominant_frame_score'],     # nominal_cols
         'n_clusters': 4,
-        'random_state': 123  
+        'random_state': 123
     },
 
     'clust_config_II': {

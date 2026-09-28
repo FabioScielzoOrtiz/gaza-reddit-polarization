@@ -1599,6 +1599,320 @@ def compare_configs_separability(
 
 #########################################################################################################################################################
 
+"""
+Complementary pairwise separability metrics.
+
+Two families of variables are handled:
+  - Ordinal / continuous  (political_stance_score, argument_quality_score,
+    sentiment_score): Cliff's delta + |median diff| + |mean diff|, pairwise.
+  - Nominal              (discourse_tone_score, dominant_frame_score):
+    a pairwise analogue based on categorical distribution divergence,
+    since Cliff's delta / median differences are undefined without an
+    ordering or common unit.
+
+Both families answer the same underlying question your idea in the prompt
+was after: "concretely, how far apart are clusters (i,j) on variable X?",
+averaged across all C(k,2) pairs, then reported per configuration in the
+same style as the existing epsilon-squared / Cramer's V separability report.
+"""
+
+import numpy as np
+import pandas as pd
+from itertools import combinations
+from dataclasses import dataclass, field
+from typing import Sequence, Literal, Union
+
+
+# ============================================================
+# 1. ORDINAL / CONTINUOUS PAIRWISE METRICS
+# ============================================================
+
+def cliffs_delta(x: np.ndarray, y: np.ndarray) -> float:
+    """
+    Cliff's delta between two independent samples x and y.
+    delta = P(X > Y) - P(X < Y), in [-1, 1].
+    Non-parametric, robust to ordinal/Likert-type data, does not assume
+    equal variances or normality. Computed via the rank-based Mann-Whitney
+    shortcut (avoids the O(n*m) double loop for large n).
+    """
+    x = np.asarray(x)
+    y = np.asarray(y)
+    nx, ny = len(x), len(y)
+
+    all_vals = np.concatenate([x, y])
+    ranks = pd.Series(all_vals).rank(method="average").to_numpy()
+    rank_x = ranks[:nx]
+
+    r_sum_x = rank_x.sum()
+    u_x = r_sum_x - nx * (nx + 1) / 2
+    delta = (2 * u_x) / (nx * ny) - 1
+    return float(np.clip(delta, -1.0, 1.0))
+
+
+# ============================================================
+# 2. NOMINAL PAIRWISE METRIC (categorical analogue)
+# ============================================================
+
+def total_variation_distance(p: np.ndarray, q: np.ndarray) -> float:
+    """
+    Total Variation Distance between two categorical (probability) distributions.
+    TVD = 0.5 * sum(|p_i - q_i|), in [0, 1].
+    0 = identical category-proportion profiles; 1 = disjoint supports.
+    This is the natural nominal-variable analogue of Cliff's delta: instead
+    of comparing the ordering of individual observations, it compares how
+    differently the two clusters distribute their mass across categories
+    (e.g. discourse_tone: Hostile/Analytical/Emotional/...). Equivalent (up
+    to the 0.5 factor) to the L1 distance between empirical category
+    distributions, and closely related to the overlap coefficient
+    (1 - TVD = proportion of shared/overlapping category mass).
+    """
+    cats = sorted(set(p.index) | set(q.index))
+    p_full = p.reindex(cats, fill_value=0.0)
+    q_full = q.reindex(cats, fill_value=0.0)
+    return float(0.5 * np.abs(p_full - q_full).sum())
+
+
+def pairwise_separability_nominal(
+    data: pd.DataFrame,
+    cluster_col: str,
+    variable: str,
+) -> "PairwiseVariableResult":
+    """
+    For a nominal variable, computes Total Variation Distance for every
+    pair of clusters (how differently they distribute mass across
+    categories), and the simple proportion mismatch in the *dominant*
+    category (1 if the two clusters have a different modal category, 0
+    otherwise) as an easily-readable companion statistic.
+    """
+    groups = sorted(data[cluster_col].unique())
+    pair_results = []
+
+    for g1, g2 in combinations(groups, 2):
+        p = data.loc[data[cluster_col] == g1, variable].value_counts(normalize=True)
+        q = data.loc[data[cluster_col] == g2, variable].value_counts(normalize=True)
+
+        tvd = total_variation_distance(p, q)
+        mode_mismatch = float(p.idxmax() != q.idxmax())
+
+        pair_results.append({
+            "pair": f"({g1},{g2})",
+            "tvd": tvd,
+            "abs_tvd": tvd,  # already non-negative, kept for schema symmetry
+            "mode_mismatch": mode_mismatch,
+        })
+
+    result = PairwiseVariableResult(variable=variable, pair_results=pair_results, var_kind="nominal")
+    df = result.to_frame()
+    result.mean_pairwise_effect = float(df["tvd"].mean())
+    result.mean_secondary = float(df["mode_mismatch"].mean())
+    return result
+
+
+# ============================================================
+# 3. SHARED RESULT CONTAINERS
+# ============================================================
+
+@dataclass
+class PairwiseVariableResult:
+    variable: str
+    pair_results: list = field(default_factory=list)
+    var_kind: Literal["ordinal", "nominal"] = "ordinal"
+    mean_pairwise_effect: float = 0.0   # mean |Cliff's delta| (ordinal) or mean TVD (nominal) -- unit-free, aggregable
+    mean_secondary: float = 0.0          # mean |median diff| (ordinal) or mean mode-mismatch rate (nominal)
+    mean_tertiary: float = 0.0           # mean |mean diff| (ordinal only); unused for nominal
+
+    def to_frame(self) -> pd.DataFrame:
+        return pd.DataFrame(self.pair_results)
+
+
+def pairwise_separability_ordinal(
+    data: pd.DataFrame,
+    cluster_col: str,
+    variable: str,
+) -> PairwiseVariableResult:
+    """
+    For an ordinal/continuous variable: Cliff's delta, |median diff|, and
+    |mean diff| for every cluster pair, averaged across all C(k,2) pairs.
+    """
+    groups = sorted(data[cluster_col].unique())
+    pair_results = []
+
+    for g1, g2 in combinations(groups, 2):
+        x = data.loc[data[cluster_col] == g1, variable].dropna().to_numpy()
+        y = data.loc[data[cluster_col] == g2, variable].dropna().to_numpy()
+
+        delta = cliffs_delta(x, y)
+        median_diff = abs(np.median(x) - np.median(y))
+        mean_diff = abs(np.mean(x) - np.mean(y))
+
+        pair_results.append({
+            "pair": f"({g1},{g2})",
+            "cliffs_delta": delta,
+            "abs_cliffs_delta": abs(delta),
+            "median_diff": median_diff,
+            "mean_diff": mean_diff,
+        })
+
+    result = PairwiseVariableResult(variable=variable, pair_results=pair_results, var_kind="ordinal")
+    df = result.to_frame()
+    result.mean_pairwise_effect = float(df["abs_cliffs_delta"].mean())
+    result.mean_secondary = float(df["median_diff"].mean())
+    result.mean_tertiary = float(df["mean_diff"].mean())
+    return result
+
+
+# ============================================================
+# 4. AGGREGATED CONFIG-LEVEL REPORT (mirrors ConfigSeparability)
+# ============================================================
+
+@dataclass
+class ConfigPairwiseSeparability:
+    """
+    Aggregated pairwise-separability result for a full clustering
+    configuration, mirroring the existing ConfigSeparability report
+    (epsilon-squared / Cramer's V) so both can sit side by side.
+    """
+    config_name: str
+    per_variable: list = field(default_factory=list)  # list[PairwiseVariableResult]
+
+    @property
+    def pairwise_separability_index(self) -> float:
+        """
+        Unweighted mean of each variable's mean_pairwise_effect
+        (mean |Cliff's delta| for ordinal vars, mean TVD for nominal vars).
+        Both sub-metrics are unit-free and bounded in [0, 1], so they are
+        safely averaged together across variable types.
+        """
+        if not self.per_variable:
+            return float("nan")
+        return float(np.mean([v.mean_pairwise_effect for v in self.per_variable]))
+
+    def to_frame(self) -> pd.DataFrame:
+        rows = []
+        for v in self.per_variable:
+            rows.append({
+                "config": self.config_name,
+                "variable": v.variable,
+                "type": v.var_kind,
+                "metric": "cliffs_delta" if v.var_kind == "ordinal" else "total_variation_distance",
+                "mean_pairwise_effect": v.mean_pairwise_effect,
+                "secondary_metric": "median_diff" if v.var_kind == "ordinal" else "mode_mismatch_rate",
+                "mean_secondary": v.mean_secondary,
+            })
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _effect_size_label(value: float) -> str:
+        """Same qualitative thresholds as the existing separability report,
+        applied here to |Cliff's delta| / TVD (both in [0,1])."""
+        if value >= 0.474:   # Cliff's delta "large" threshold (Romano et al. 2006)
+            return "large"
+        elif value >= 0.33:
+            return "medium"
+        elif value >= 0.147:
+            return "small"
+        return "negligible"
+
+    def summary(self) -> str:
+        """Plain-text report, formatted like ConfigSeparability.summary()."""
+        if not self.per_variable:
+            return f"ConfigPairwiseSeparability('{self.config_name}'): no variables computed."
+
+        rows = sorted(self.per_variable, key=lambda v: v.mean_pairwise_effect, reverse=True)
+        name_w = max(len(v.variable) for v in rows) + 2
+
+        header = (
+            f"{'Variable':<{name_w}} {'Type':<9} {'Metric':<12} "
+            f"{'MeanEff':>8} {'Effect':<11} {'Secondary':<14} {'Value':>8}"
+        )
+        sep = "-" * len(header)
+
+        lines = [
+            f"Pairwise Separability report — {self.config_name}",
+            sep,
+            header,
+            sep,
+        ]
+        for v in rows:
+            metric_name = "cliffs_delta" if v.var_kind == "ordinal" else "TVD"
+            secondary_name = "median_diff" if v.var_kind == "ordinal" else "mode_mismatch"
+            lines.append(
+                f"{v.variable:<{name_w}} {v.var_kind:<9} {metric_name:<12} "
+                f"{v.mean_pairwise_effect:>8.3f} {self._effect_size_label(v.mean_pairwise_effect):<11} "
+                f"{secondary_name:<14} {v.mean_secondary:>8.3f}"
+            )
+        lines.append(sep)
+        lines.append(
+            f"{'PAIRWISE SEPARABILITY INDEX (mean)':<{name_w + 9 + 12}} "
+            f"{self.pairwise_separability_index:>8.3f} "
+            f"{self._effect_size_label(self.pairwise_separability_index):<11}"
+        )
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+
+def compute_config_pairwise_separability(
+    data: pd.DataFrame,
+    cluster_col: str,
+    ordinal_vars: Sequence[str] = (),
+    nominal_vars: Sequence[str] = (),
+    config_name: str = "",
+) -> ConfigPairwiseSeparability:
+    """
+    Main entry point, analogous to compute_config_separability but for the
+    pairwise (Cliff's delta / TVD) family of metrics.
+
+    Example
+    -------
+    >>> result_I = compute_config_pairwise_separability(
+    ...     data=df,
+    ...     cluster_col="clust_label_I",
+    ...     ordinal_vars=["political_stance_score", "argument_quality_score", "sentiment_score"],
+    ...     nominal_vars=["discourse_tone_score", "dominant_frame_score"],
+    ...     config_name="Config I",
+    ... )
+    >>> print(result_I.summary())
+    """
+    per_variable = []
+
+    for var in ordinal_vars:
+        per_variable.append(pairwise_separability_ordinal(data, cluster_col, var))
+
+    for var in nominal_vars:
+        per_variable.append(pairwise_separability_nominal(data, cluster_col, var))
+
+    return ConfigPairwiseSeparability(config_name=config_name, per_variable=per_variable)
+
+
+# ============================================================
+# USAGE EXAMPLE (run against your real dataframe):
+# ============================================================
+# result_I = compute_config_pairwise_separability(
+#     data=processed_data,
+#     cluster_col="clust_label_I",
+#     ordinal_vars=["political_stance_score", "argument_quality_score", "sentiment_score"],
+#     nominal_vars=["discourse_tone_score", "dominant_frame_score"],
+#     config_name="Config I",
+# )
+# print(result_I.summary())
+#
+# result_Ib = compute_config_pairwise_separability(
+#     data=processed_data,
+#     cluster_col="clust_label_I_b",
+#     ordinal_vars=["political_stance_score", "argument_quality_score", "sentiment_score"],
+#     nominal_vars=["discourse_tone_score", "dominant_frame_score"],
+#     config_name="Config I-b",
+# )
+# print(result_Ib.summary())
+#
+# # Side-by-side comparison table:
+# comparison = pd.concat([result_I.to_frame(), result_Ib.to_frame()], ignore_index=True)
+# print(comparison.to_string(index=False))
+
+#########################################################################################################################################################
+
 def show_silhouette_table(silhouette_dict: dict[str, float]) -> None:
     """
     silhouette_dict: {'Config I': 0.22, 'Config II': 0.071, 'Config III': 0.073, 'Config III-b': 0.031}
@@ -1625,6 +1939,7 @@ def show_silhouette_table(silhouette_dict: dict[str, float]) -> None:
         ])
     )
     return styler  # última línea de celda -> se renderiza sola
+
 
 #########################################################################################################################################################
 
@@ -1846,5 +2161,23 @@ def get_KMeans_results(n_clusters, data, X, QUANT_COMPARISON_COLS, CAT_COMPARISO
             group_by="clust_labels",
             title="Association Heatmap (Pearson / Spearman / Cramer's V) by Cluster\n",
         )
+
+####################################################################################################################################################################################################
+
+def build_kmeans_input(data, config):
+    """
+    Feature matrix for the k-means configurations.
+    Quantitative/ordinal columns are passed as coded; nominal columns listed in
+    'one_hot_cols' are one-hot encoded (full dummy set, no category dropped), so
+    that the squared Euclidean distance on each nominal variable equals twice
+    its Hamming distance.
+    """
+    import polars as pl
+    X = data.select(config['quant_cols'])
+    one_hot_cols = config.get('one_hot_cols', [])
+    if one_hot_cols:
+        dummies = data.select(one_hot_cols).cast(pl.String).to_dummies()
+        X = pl.concat([X, dummies], how='horizontal')
+    return X.to_numpy().astype(float)
 
 ####################################################################################################################################################################################################
