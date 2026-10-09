@@ -30,7 +30,12 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 async def content_relevance_score(client: AsyncOpenAI, model_name: str = "gpt-4o-mini", temperature: float = 0.0, 
                                   content: str = None, return_prompt: bool = False):
     """
-    Calcula la relevancia temática usando ejemplos Few-Shot dinámicos (Versión Async).
+    Zero-shot relevance score (0-5) for a Reddit comment.
+
+    This is the prompt used to generate the relevance scores (2026-05-10, commit 7ce9ca6)
+    and to validate them (03b). Its 'DISCARD THRESHOLD' reminder refers to the cut-off of 3
+    planned at generation time; the cut-off applied in the analysis was later raised to 4
+    (config_03bcd_04bc.py). See Online Resource 1, Sect. S1.
     """
     prompt = f"""
 You are an expert content rating specialist for an academic study on public opinion regarding the Gaza conflict on Reddit.
@@ -38,8 +43,8 @@ You are an expert content rating specialist for an academic study on public opin
 Your task is to assign a numerical **Relevance Score** from **0 (Not Related)** to **5 (Directly Related)** to the provided Reddit comment.
 
 ---
-**CRITICAL CONTEXT: THE "DISCARD" THRESHOLD (< 4)**
-Keep in mind that any comment receiving a score of 0, 1, 2 or 3 **will be completely discarded from the final analysis**. You must use these lower scores confidently to filter out any comment that does not provide useful data about the public opinion on the Gaza conflict (e.g., purely domestic US politics, generic noise, meta-Reddit discussions).
+**CRITICAL CONTEXT: THE "DISCARD" THRESHOLD (< 3)**
+Keep in mind that any comment receiving a score of 0, 1, or 2 **will be completely discarded from the final analysis**. You must use these lower scores confidently to filter out any comment that does not provide useful data about the public opinion on the Gaza conflict (e.g., purely domestic US politics, generic noise, meta-Reddit discussions).
 
 ---
 **TOPICAL RELEVANCE SCALE (0-5):**
@@ -63,7 +68,6 @@ Example:
   "content_relevance_score": 5
 }}
 
----
 **TEXT TO CLASSIFY:**
 {content}
 """

@@ -26,7 +26,6 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # --- PATH CONFIGURATION ---
 # Mirrors the path logic of the original training script (assumed to live in the same
-# `scripts` folder as 02_train_models.py; adjust `project_path` if this file lives elsewhere).
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(script_path, '..', '..')
@@ -102,7 +101,7 @@ def main():
             method=KMEDOIDS_METHOD,
             init='build',
             max_iter=100,
-            random_state=RANDOM_STATE          # <-- varied across reps
+            random_state=RANDOM_STATE          
         )
 
         clust_object = SampleDistClustering(
